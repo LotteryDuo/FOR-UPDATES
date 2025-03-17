@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title></title>
+    <link href="css/style.css" rel="stylesheet">
+  </head>
+  <body>
+    <div id="root">
+    </div>
+    <script>
+      const API_URL = 'http://localhost:3000';
+      const root = document.getElementById('root');
+
+      function showLogin() {
+        root.innerHTML = `
+          <form id="login" action="#" method="post">
+            <label for="username">Username</label>
+            <input type="text" name="username" value="" id="username">
+            <label for="password">Password</label>
+            <input type="password" name="password" value="" id="password">
+            <button type="submit">Login</button>
+          </form>
+        `;
+
+        const loginForm = document.getElementById("login");
+
+        loginForm.addEventListener('submit', (e) => {
+          e.preventDefault();
+
+          const formData = new FormData(e.target);
+          const payload = JSON.stringify(Object.fromEntries(formData));
+
+          fetch(`${API_URL}/v1/account/login`, {
+            method: 'POST',
+            headers: {
+              'content-type': 'application/json',
+              apikey: 'hello',
+            },
+            body: payload,
+          })
+            .then(data => data.json())
+            .then(data => {
+              localStorage.setItem('token', data?.data?.token);
+              root.innerHTML = '';
+              loadProfile();
+            })
+            .catch(err => console.log(err));
+        });
+      };
+
+      function loadProfile() {
+        fetch(`${API_URL}/v1/account`, {
+          headers: {
+            'accept': 'application/json',
+            apikey: 'hello',
+            token: localStorage.getItem('token'),
+          }
+        })
+          .then(res => res.json())
+          .then(data => {
+            if (data?.success) {
+              root.innerHTML = `<h1>Welcome back ${data?.data?.username}</h1>`;
+            } else {
+              localStorage.removeItem('token');
+              showLogin();
+            }
+          })
+          .catch(err => {
+            localStorage.removeItem('token');
+            showLogin();
+          });
+      };
+
+      (() => {
+        if (localStorage.getItem('token')) {
+          loadProfile();
+        } else {
+          showLogin();
+        }
+      })();
+    </script>
+  </body>
+</html>
