@@ -23,4 +23,11 @@ drawRouter.post("/", draw.createDraw.bind(draw));
  */
 drawRouter.get("/latest", draw.getLatestDrawResult.bind(draw));
 
+/**
+ * Get the latest draw result
+ * @method GET
+ * path /v1/draw/winners
+ */
+drawRouter.get("/winners", draw.getWinningUsersByLatestDraw.bind(draw));
+
 export default drawRouter;

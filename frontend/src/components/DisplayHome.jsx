@@ -12,32 +12,65 @@ import ButtonWithSound from "./ButtonWithSound";
 import { io } from "socket.io-client";
 import fetchAccountData from "../utils/fetchAccountData.jsx";
 
+import fetchPrevBet from "../utils/fetchPrevBet.js";
+
 import buyTicket from "../utils/buyTicket.js";
 
 import CountDown from "./CountDown";
 import placeBet from "../utils/placeBet.js";
 
-const socket = io("http://localhost:3000");
+import fetchWinners from "../utils/fetchWinners.js";
+
+const socket = io("ws://localhost:3000", {
+  transports: ["websocket"],
+});
 
 const getToken = () => localStorage.getItem("token");
 
 const getUsername = () => localStorage.getItem("username");
 
+const getUserId = () => localStorage.getItem("user_id");
+
 const DisplayHome = () => {
   const navigator = useNavigate();
-
+  const [accountBets, setAccountBets] = useState([]);
   const [accountData, setAccountData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [lottoInput, setLottoInput] = useState("");
-
+  const [hasPlacedBet, setPlaceBet] = useState(false);
   const [popupTopUp, setPopUpTopUp] = useState(false);
   const [popupWithdraw, setPopUpWithdraw] = useState(false);
 
+  const [showWinning, setShowWinning] = useState("pending");
+
   const [users, setUsers] = useState([]);
 
-  const [getnumbers, setNumbers] = useState([]);
+  const [timeLeft, setTimeLeft] = useState(null);
+
+  const [getnumbers, setNumbers] = useState([
+    "--",
+    "--",
+    "--",
+    "--",
+    "--",
+    "--",
+  ]);
+
+  useEffect(() => {
+    const fetchUsers = () => {
+      socket.emit("requestOnlineUsers");
+    };
+
+    socket.on("updateOnlineUsers", setUsers);
+
+    const interval = setInterval(fetchUsers, 10000);
+    return () => {
+      clearInterval(interval);
+      socket.off("updateOnlineUsers");
+    };
+  }, []);
 
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -52,9 +85,20 @@ const DisplayHome = () => {
       return;
     }
 
+    // const sendToServerBuyTicket = () => {
+    //   socket.emit("buy-ticket", { ticketPrice, ticketQty });
+    //   console.log(localStorage.getItem("user_id"));
+    //   // console.log(user_id, "alksndasndklasmdl;ksa");
+    // };
+
+    // sendToServerBuyTicket(); // Call the function to emit event
+
+    // Uncomment this if you want to send a request to the backend for further processing
     try {
       const response = await buyTicket(ticketPrice, ticketQty);
       console.log("Ticket purchased successfully:", response);
+      const data = await fetchAccountData();
+      if (data) setAccountData(data);
     } catch (error) {
       console.error("Failed to buy ticket:", error.message);
     }
@@ -66,9 +110,25 @@ const DisplayHome = () => {
       return;
     }
 
+    // const sendToServerBet = () => {
+    //   socket.emit("place-bet", {});
+    // };
+
+    // sendToServerBet();
+
     try {
       const response = await placeBet(bet_number);
-      console.log("Ticket purchased successfully:", response);
+      console.log("Ticket Placed successfully:", response);
+      const bets = await fetchPrevBet();
+      if (bets.length > 0) {
+        setAccountBets(bets);
+        setPlaceBet(true);
+      }
+      const data = await fetchAccountData();
+
+      if (data) setAccountData(data);
+
+      setLottoInput("");
     } catch (error) {
       console.error("Failed to buy ticket:", error.message);
     }
@@ -87,10 +147,8 @@ const DisplayHome = () => {
   };
 
   useEffect(() => {
-    socket.on("draws", (data) => {
+    socket.on("draws", async (data) => {
       if (typeof data === "string") setNumbers(data.split("-").map(Number)); // Convert string to array of numbers
-
-      // setNumbers([1, 2, 3, 4, 5, 6]);
     });
 
     // ✅ Cleanup function: Remove event listener on unmount
@@ -124,45 +182,45 @@ const DisplayHome = () => {
     }
   };
 
-  useEffect(() => {
-    const username = getUsername();
+  // useEffect(() => {
+  //   const username = getUsername();
 
-    if (username) {
-      socket.emit("userConnected", {
-        username: username,
-      });
-    } else {
-      console.log("⚠️ No username found in localStorage!");
-    }
+  //   if (username) {
+  //     socket.emit("userConnected", {
+  //       username: username,
+  //     });
+  //   } else {
+  //     console.log("⚠️ No username found in localStorage!");
+  //   }
 
-    const handleUsersUpdate = (onlineUsers) => {
-      setUsers(onlineUsers);
-    };
+  //   const handleUsersUpdate = (onlineUsers) => {
+  //     setUsers(onlineUsers);
+  //   };
 
-    const handleUserDisconnected = (disconnectedUser) => {
-      setUsers((prevUsers) =>
-        prevUsers.map((user) =>
-          user.username === disconnectedUser.username
-            ? { ...user, online: false }
-            : user
-        )
-      );
-    };
+  //   const handleUserDisconnected = (disconnectedUser) => {
+  //     setUsers((prevUsers) =>
+  //       prevUsers.map((user) =>
+  //         user.username === disconnectedUser.username
+  //           ? { ...user, online: false }
+  //           : user
+  //       )
+  //     );
+  //   };
 
-    socket.on("updateOnlineUsers", handleUsersUpdate);
-    socket.on("userDisconnected", handleUserDisconnected);
+  //   socket.on("updateOnlineUsers", handleUsersUpdate);
+  //   socket.on("userDisconnected", handleUserDisconnected);
 
-    window.addEventListener("beforeunload", () => {
-      if (username) {
-        socket.emit("userDisconnected", { username });
-      }
-    });
+  //   window.addEventListener("beforeunload", () => {
+  //     if (username) {
+  //       socket.emit("userDisconnected", { username });
+  //     }
+  //   });
 
-    return () => {
-      socket.off("updateOnlineUsers", handleUsersUpdate);
-      socket.off("userDisconnected", handleUserDisconnected);
-    };
-  }, []);
+  //   return () => {
+  //     socket.off("updateOnlineUsers", handleUsersUpdate);
+  //     socket.off("userDisconnected", handleUserDisconnected);
+  //   };
+  // }, []);
 
   useEffect(() => {
     const getData = async () => {
@@ -183,6 +241,68 @@ const DisplayHome = () => {
 
     getData();
   }, []); // ✅ Empty dependency array to run only on mount
+
+  useEffect(() => {
+    const getBets = async () => {
+      try {
+        const bets = await fetchPrevBet();
+
+        if (bets.length > 0) {
+          setAccountBets(bets);
+          setPlaceBet(true);
+          console.log(bets);
+        } else {
+          console.log("no Bets found.");
+        }
+      } catch (err) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    getBets();
+  }, []); // ✅ Empty dependency array to run only on mount
+
+  useEffect(() => {
+    if (timeLeft !== 0) return; // ✅ Only run when timeLeft is exactly 0
+
+    const fetchData = async () => {
+      try {
+        console.log("Fetching data since timeLeft is 0...");
+        const account_data = await fetchAccountData();
+        console.log(account_data);
+        if (account_data) setAccountData(account_data);
+
+        // ✅ Wait 3 seconds before fetching winners
+        setTimeout(async () => {
+          const winners = await fetchWinners(); // ✅ Remove `[winners]`, fetchWinners() should return an array
+
+          console.log("Winners List:", winners);
+
+          console.log(getUserId());
+
+          // ✅ Find the user in the winners array
+          const userWin = winners.find((win) => win.user_id === getUserId());
+
+          if (userWin) {
+            console.log("🎉 You are a winner!", userWin.user_id);
+          } else {
+            console.log("❌ Not a winner.");
+          }
+        }, 3000);
+
+        setAccountBets([]);
+        setPlaceBet(true);
+
+        console.log("Data reloaded successfully!");
+      } catch (error) {
+        console.error("Error fetching data:", error);
+      }
+    };
+
+    fetchData();
+  }, [timeLeft]); // ✅ Effect triggers when timeLeft changes
 
   const handleLottoInputChange = (e) => {
     let rawValue = e.target.value.replace(/[^0-9]/g, "");
@@ -220,28 +340,30 @@ const DisplayHome = () => {
         }}
       ></div>
 
-      <div className="absolute top-[70px] pl-0 px-1">
-        <div className="flex align-items right">
-          <div
-            className="p-4 px-6 py-6 mr-5 bg-center bg-no-repeat "
-            style={{
-              backgroundSize: "contain",
-            }}
-          ></div>
-          <h1
-            style={{
-              fontFamily: "'Jersey 20', sans-serif",
-              backgroundColor: "#E8AC41",
-              fontSize: "2rem",
-            }}
-            className="flex justify-right px-6 py-2 rounded-lg"
-          >
-            JACKPOT PRIZE: $1,500.00
-          </h1>
+      {hasPlacedBet && (
+        <div className="absolute top-[70px] pl-0 px-1">
+          <div className="flex align-items right">
+            <div
+              className="p-4 px-6 py-6 mr-5 bg-center bg-no-repeat "
+              style={{
+                backgroundSize: "contain",
+              }}
+            ></div>
+            <h1
+              style={{
+                fontFamily: "'Jersey 20', sans-serif",
+                backgroundColor: "#E8AC41",
+                fontSize: "2rem",
+              }}
+              className="flex justify-right px-6 py-2 rounded-lg"
+            >
+              JACKPOT PRIZE: $1,500.00
+            </h1>
+          </div>
         </div>
-      </div>
+      )}
 
-      <CountDown />
+      <CountDown onTimeUpdate={setTimeLeft} />
 
       {/* <ButtonWithSound
         onClick={toggleSound}
@@ -446,13 +568,18 @@ const DisplayHome = () => {
                 fontFamily: "'Jersey 20', sans-serif",
                 backgroundColor: "#41644A",
                 borderRadius: "10px",
-                height: "100%",
+                // height: "100%",
               }}
             >
-              <div className="flex flex-row items-center">
-                <p className="ml-7 mt-2 text-center text-white text-[2rem]">
-                  02-01-09-11-13-45
-                </p>
+              <div className="flex flex-col h-[150px] items-center overflow-y-scroll">
+                {accountBets.map((bet, index) => (
+                  <p
+                    key={index}
+                    className="ml-2 text-center text-white text-[2rem]"
+                  >
+                    {`${index + 1}. ${bet}`}
+                  </p>
+                ))}
               </div>
             </div>
           </div>
@@ -515,7 +642,7 @@ const DisplayHome = () => {
                 style={{ backgroundColor: "#C14600" }}
                 className="w-[150px] text-center rounded-lg"
               >
-                GAMBLERS (2)
+                GAMBLERS {users.length}
               </p>
             </div>
             <div>
@@ -583,6 +710,38 @@ const DisplayHome = () => {
                 TOP UP
               </ButtonWithSound>
             </div>
+          </div>
+        </div>
+      )}
+
+      {showWinning === "win" && (
+        <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-50">
+          <div className="flex flex-col items-center">
+            <div
+              className="flex flex-row justify-center"
+              style={{ marginTop: -40 }}
+            >
+              {[...Array(8)].map((_, index) => (
+                <div
+                  key={index}
+                  className="pb-[200px] bg-no-repeat mr-2 bg-contain w-[120px] h-[110px]"
+                  style={{
+                    backgroundImage: "url('src/assets/images/winning-img.png')",
+                    fontFamily: "'Jersey 20', sans-serif",
+                  }}
+                ></div>
+              ))}
+            </div>
+            <div className=" bg-[#FFCF50] p-20 rounded-lg shadow-lg text-center mb-[100px]">
+              <h2 className="text-[50px] font-semibold text-black">YOU WON!</h2>
+            </div>
+          </div>
+        </div>
+      )}
+      {showWinning === "lost" && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-[#9E9E9E] p-20 rounded-lg shadow-lg text-center">
+            <h2 className="text-[50px] font-semibold text-black">YOU LOST!</h2>
           </div>
         </div>
       )}

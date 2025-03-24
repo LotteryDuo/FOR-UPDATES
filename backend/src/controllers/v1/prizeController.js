@@ -1,8 +1,12 @@
 import Prize from "../../models/Prize.js";
+import Draw from "../../models/Draw.js";
+import User from "../../models/user.js";
 
 class PrizeController {
   constructor() {
     this.prize = new Prize();
+    this.draw = new Draw();
+    this.user = new User();
   }
 
   /**

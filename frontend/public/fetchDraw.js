@@ -1,4 +1,4 @@
-const fetDraw = async () => {
+const fetchDraw = async () => {
   try {
     const response = await fetch("http://localhost:1000/v1/draw/latest");
     if (!response.ok) {
@@ -13,4 +13,4 @@ const fetDraw = async () => {
 };
 
 // Call the function
-fetDraw();
+fetchDraw();

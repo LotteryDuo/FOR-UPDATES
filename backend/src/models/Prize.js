@@ -1,17 +1,17 @@
 import { connection } from "../core/database.js";
+import User from "./user.js";
 
 class Prize {
   constructor() {
     this.db = connection;
+    this.user = new User();
   }
 
-  async addPrizeMoney(money) {
+  async addPrizeMoney() {
     try {
       const [result] = await this.db.execute(
-        "INSERT INTO prize (money) VALUES (1500)"
+        "INSERT INTO prize (money, status) VALUES (1500, 'unclaim')"
       );
-
-      console.log(result);
 
       return result[0];
     } catch (err) {
@@ -20,36 +20,52 @@ class Prize {
     }
   }
 
-  async getPrizeAmount() {
+  async distributePrizes(winners) {
     try {
-      const [result] = await this.db.execute("SELECT money FROM prize");
+      const prizeAmount = await this.getPrizeAmount();
 
-      if (result.length === 0) await this.rollOverPrize();
-      return result?.[0].money || 0;
+      if (!winners || winners.length === 0) {
+        return;
+      }
+
+      const sharePerWinner = Math.max(
+        1,
+        Math.floor(prizeAmount / winners.length)
+      );
+
+      for (const winner of winners) {
+        await this.user.updateBalance(
+          winner.user_id,
+          sharePerWinner,
+          "winning"
+        );
+      }
+      await this.db.execute(
+        "UPDATE prize SET status = 'claimed' WHERE status = 'unclaim'"
+      );
+
+      await this.addPrizeMoney();
+
+      return sharePerWinner;
     } catch (err) {
-      console.error("<error> pot.getPotAmount", err);
+      console.error("<error> prize.getPotAmount", err);
       throw err;
     }
   }
 
-  async rollOverPrize() {
+  async getPrizeAmount() {
     try {
-      // 1️⃣ Check if prize money exists
-      const [prizeResult] = await this.db.execute(
-        "SELECT money FROM prize LIMIT 1"
-      );
+      const [result] = await this.db.execute("SELECT money FROM prize");
 
-      if (prizeResult.length === 0) {
-        // 2️⃣ If no prize exists, initialize it with 1500
-        await this.db.execute("INSERT INTO prize (money) VALUES (1500)");
-        console.log("Prize initialized to 1500.");
-      } else {
-        await this.db.execute("UPDATE prize SET money = 1500");
+      // If no prize money exists, create a new prize entry
+      if (result.length === 0) {
+        await this.addPrizeMoney();
+        return 1500; // Return the default prize amount
       }
 
-      return { success: true, message: "Prize money updated successfully." };
+      return result?.[0].money || 0;
     } catch (err) {
-      console.error("<error> Prize.rollOverPrize", err);
+      console.error("<error> prize.getPotAmount", err);
       throw err;
     }
   }

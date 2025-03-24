@@ -5,7 +5,9 @@ import { io } from "socket.io-client";
 import ButtonWithSound from "./ButtonWithSound";
 import fetchAccountData from "../utils/fetchAccountData";
 
-const socket = io("http://localhost:3000");
+const socket = io("ws://localhost:3000", {
+  transports: ["websocket"],
+});
 
 const getToken = () => sessionStorage.getItem("token");
 const getUsername = () => sessionStorage.getItem("username");

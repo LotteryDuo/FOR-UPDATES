@@ -17,8 +17,6 @@ class Bet {
 
     const recentBetNum = betRecords.map((bet) => bet.bet_number);
 
-    console.log("Recent bets:", recentBetNum);
-
     if (recentBetNum.includes(bet_number)) {
       throw new Error(
         `You have already placed a bet with the number ${bet_number} in this draw.`
@@ -36,7 +34,6 @@ class Bet {
   async placeBet(user_id, bet_number) {
     try {
       const currentDrawId = await this.draws.getLatestDrawId();
-      console.log(currentDrawId);
 
       await this.checkDuplicatedBet(user_id, currentDrawId, bet_number);
 
@@ -56,8 +53,6 @@ class Bet {
 
       const ticketId = tickets[0].ticket_id;
       const ticketCount = tickets[0].ticket_count;
-
-      console.log(ticketId);
 
       if (betCount[0].count >= 10)
         throw new Error(
@@ -85,9 +80,6 @@ class Bet {
         );
       }
 
-      console.log(ticketCount);
-
-      // console.log(result);
       return {
         bet_id: res.insertId,
         draw_id: currentDrawId,

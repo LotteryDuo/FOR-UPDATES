@@ -14,6 +14,12 @@ accountRouter.post("/login", account.login.bind(account));
 accountRouter.post("/", account.create.bind(account));
 accountRouter.get("/", authentication, account.profile.bind(account));
 
+accountRouter.get(
+  "/prev-bet",
+  authentication,
+  account.getPrevBet.bind(account)
+);
+
 accountRouter.post(
   "/deposit/:amount",
   authentication,

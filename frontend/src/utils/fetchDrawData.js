@@ -1,4 +1,4 @@
-const fethcDrawData = async () => {
+const fetchDrawData = async () => {
   try {
     const response = await fetch("http://localhost:1000/v1/draw/latest", {
       method: "GET",
@@ -23,4 +23,4 @@ const fethcDrawData = async () => {
   }
 };
 
-export default fethcDrawData;
+export default fetchDrawData;

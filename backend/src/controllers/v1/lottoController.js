@@ -20,7 +20,6 @@ class LottoControlller {
       const { qty } = req.body;
       const username = res.locals.username;
 
-      console.log("Buying ticket", username, qty);
       if (!username || !qty || qty <= 0) {
         return res
           .status(400)
@@ -54,7 +53,7 @@ class LottoControlller {
       const numberPattern =
         /^((?:[1-9]|0[1-9]|[1-4][0-9])[\s,-]){5}(?:[1-9]|0[1-9]|[1-4][0-9])$/;
 
-      console.log("Placing bet", username, qty, numberPattern.test(numbers));
+      // console.log("Placing bet", username, qty, numberPattern.test(numbers));
 
       const isAccepted = numberPattern.test(numbers);
       if (!username || !qty || qty <= 0 || !numbers || !isAccepted) {

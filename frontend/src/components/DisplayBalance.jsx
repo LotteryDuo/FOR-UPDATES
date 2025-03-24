@@ -1,14 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { ChevronLeft, Wallet, WindArrowDown } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { io } from "socket.io-client";
 import ButtonWithSound from "./ButtonWithSound";
 import Alert from "./Alert.jsx";
-
+import useSocket from "../hooks/useSocket.js";
 import fetchAccountData from "../utils/fetchAccountData";
 import transactBalance from "../utils/transactBalance";
-
-const socket = io("http://localhost:3000");
 
 const getToken = () => sessionStorage.getItem("token");
 const getUsername = () => sessionStorage.getItem("username") || "Guest";
@@ -23,7 +20,10 @@ const DisplayBalance = () => {
   const [amount, setAmount] = useState("");
   const navigate = useNavigate();
 
+  const [isConnected, socket] = useSocket();
+
   useEffect(() => {
+    if (!isConnected) return;
     const loadAccountData = async () => {
       const data = await fetchAccountData();
       if (data) {
@@ -36,17 +36,7 @@ const DisplayBalance = () => {
 
     loadAccountData();
     setLoading(false);
-  }, []);
-
-  useEffect(() => {
-    socket.on("balanceUpdated", (newBalance) => {
-      setBalance(newBalance);
-    });
-
-    return () => {
-      socket.off("balanceUpdated");
-    };
-  }, [accountData]);
+  }, [isConnected, socket]);
 
   const handleDeposit = async () => {
     if (!amount || amount <= 0) {

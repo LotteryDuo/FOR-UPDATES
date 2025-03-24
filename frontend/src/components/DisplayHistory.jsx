@@ -1,15 +1,25 @@
 import React from "react";
 import { ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
+import DateDropdown from "./Date";
+import { useState } from "react";
 
 const DisplayHistory = () => {
   const navigate = useNavigate();
+  const [uniqueDates, setUniqueDates] = useState([]);
   const handleReturn = () => {
     navigate(-1);
   };
+  const handleDateSelect = (selectedDate) => {
+    if (selectedDate === "") {
+      setFilteredData(data);
+    } else {
+      setFilteredData(data.filter((item) => item.date === selectedDate));
+    }
+  };
   return (
     <div
-      className="flex flex-col h-screen w-screen bg-contain bg-center bg-no-repeat overflow-y-scroll"
+      className="flex flex-col h-screen w-screen bg-cover bg-bottom bg-no-repeat overflow-y-scroll"
       style={{
         backgroundImage: "url('src/assets/images/bg-account.png')",
         fontFamily: "'Jersey 20', sans-serif",
@@ -32,6 +42,7 @@ const DisplayHistory = () => {
           <p className="text-[18px] ">RETURN</p>
         </button>
       </div>
+      <DateDropdown dates={uniqueDates} onSelectDate={handleDateSelect} />
       <div className="w-full flex flex-col justify-center items-center gap-6 overflow-y">
         {[...Array(10)].map((_, index) => (
           <div

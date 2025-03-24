@@ -3,14 +3,17 @@ import { useState, useEffect } from "react";
 import Alert from "./Alert";
 import { io } from "socket.io-client";
 
-const socket = io("http://localhost:3000");
+const socket = io("ws://localhost:3000", {
+  transports: ["websocket"],
+});
 
-const CountDown = () => {
+const CountDown = ({ onTimeUpdate }) => {
   const [timeLeft, setTimeLeft] = useState("00"); // Start at 60 seconds
 
   useEffect(() => {
     socket.on("countdown", (timeLeft) => {
       setTimeLeft(timeLeft);
+      onTimeUpdate(timeLeft);
     });
 
     return () => {

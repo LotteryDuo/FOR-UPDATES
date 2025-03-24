@@ -1,13 +1,12 @@
 import React, { useEffect, useState } from "react";
-
-import { io } from "socket.io-client";
-
-const socket = io(`http://localhost:3000`);
+import useSocket from "../hooks/useSocket";
 
 const DrawNumber = () => {
+  const { isConnected, socket } = useSocket();
   const [drawNumbers, setDrawNumbers] = useState([]);
 
   useEffect(() => {
+    if (!isConnected) return;
     socket.on("draw", (numbers) => {
       console.log(numbers);
       setDrawNumbers(numbers);
@@ -16,7 +15,7 @@ const DrawNumber = () => {
     return () => {
       socket.off("draw"); // ✅ Clean up listener
     };
-  }, []);
+  }, [isConnected, socket]);
 
   return (
     <div className="flex flex-column justify-center" style={{ marginTop: -40 }}>

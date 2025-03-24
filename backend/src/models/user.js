@@ -79,8 +79,6 @@ class User {
 
       const user = results[0]; // ✅ Get first element of array
 
-      console.log(user.username);
-
       return {
         user_id: user.user_id,
         username: user.username,
@@ -106,41 +104,40 @@ class User {
     try {
       await connection.beginTransaction();
 
-      const [user] = await connection.execute(
+      const [users] = await connection.execute(
         "SELECT user_id, balance FROM users WHERE user_id = ? FOR UPDATE",
         [userId]
       );
 
-      console.log(userId);
+      //check if users exists
+      if (users.length === 0) throw new Error("User not found");
 
-      //check if user exists
-      if (user.length === 0) throw new Error("User not found");
-
-      const { user_id, balance } = user[0];
-
-      console.log(userId, balance);
+      const { balance } = users[0];
 
       if ((type === "withdraw" || type === "buy") && balance < amount)
         throw new Error("Insufficient funds.");
 
       // Update balance based on transaction type
-      const balanceQuery =
-        type === "deposit"
-          ? "UPDATE users SET balance = balance + ? WHERE user_id = ?"
-          : "UPDATE users SET balance = balance - ? WHERE user_id = ?";
+      if (type === "deposit") {
+        await connection.execute(
+          "UPDATE users SET balance = balance + ? WHERE user_id = ?",
+          [amount, userId]
+        );
+      }
 
-      const [balanceq] = await connection.execute(balanceQuery, [
-        amount,
-        userId,
-      ]);
+      if (type === "winning") {
+        await connection.execute(
+          "UPDATE users SET balance = balance + ? WHERE user_id = ?",
+          [amount, userId]
+        );
+      }
 
-      console.log(balanceq, userId);
-
-      // Insert transaction record
-      await connection.execute(
-        "INSERT INTO transactions (user_id, TYPE, amount, transaction_date) VALUES (?, ?, ?, NOW())",
-        [userId, type, amount]
-      );
+      if (type === "withdraw") {
+        await connection.execute(
+          "UPDATE users SET balance = balance - ? WHERE user_id = ?",
+          [amount, userId]
+        );
+      }
 
       // If type is "buy", add the corresponding number of tickets
       if (type === "buy") {
@@ -155,8 +152,6 @@ class User {
         [userId]
       );
 
-      console.log(updatedUser[0]);
-
       await connection.commit();
 
       return {
@@ -165,11 +160,11 @@ class User {
           type === "buy"
             ? "Ticket purchased successfully"
             : "Transaction successful",
-        user: updatedUser[0],
+        users: updatedUser[0],
       };
     } catch (err) {
       await connection.rollback();
-      console.error(`<error> user.${type}`, err);
+      console.error(`<error> users.${type}`, err);
       throw err;
     }
   }
@@ -191,7 +186,7 @@ class User {
         FROM bet AS b
         LEFT JOIN draw_result AS d ON b.bet_id = d.bet_id
         WHERE b.user_id = ? 
-        ORDER BY b.created_at DESC;`,
+        ORDER BY b.created_at DESC`,
         [user_id]
       );
       return result;
@@ -201,21 +196,44 @@ class User {
     }
   }
 
+  async getPrevBet(user_id, draw_id) {
+    try {
+      const [result] = await connection.execute(
+        `SELECT 
+            b.bet_id, 
+            b.user_id, 
+            b.draw_id, 
+            b.bet_number, 
+            b.created_at
+        FROM bets AS b
+        LEFT JOIN draws AS d ON b.draw_id = d.draw_id
+        WHERE b.user_id = ? AND b.draw_id = ? 
+        ORDER BY b.created_at DESC`,
+        [user_id, draw_id]
+      );
+
+      return result || [];
+    } catch (err) {
+      console.error("<error> user.getPrevBet", err);
+      throw err;
+    }
+  }
+
   async getLastWinHistory(user_id) {
     try {
       const [result] = await connection.execute(
         `SELECT 
-                    b.bet_id, 
-                    b.user_id, 
-                    b.bet_amount, 
-                    b.bet_number, 
-                    d.winning_no, 
-                    d.created_at AS win_date
-                FROM bet AS b
-                JOIN draw_result AS d ON b.bet_id = d.bet_id
-                WHERE b.user_id = ?
-                ORDER BY d.created_at DESC
-                LIMIT 1;`,
+            b.bet_id, 
+            b.user_id, 
+            b.bet_amount, 
+            b.bet_number, 
+            d.winning_no, 
+            d.created_at AS win_date
+        FROM bet AS b
+        JOIN draw_result AS d ON b.bet_id = d.bet_id
+        WHERE b.user_id = ?
+        ORDER BY d.created_at DESC
+        LIMIT 1;`,
         [user_id]
       );
     } catch (err) {

@@ -15,25 +15,6 @@ export default function DisplayAuth() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
 
-  // useEffect(() => {
-  //   const getData = async () => {
-  //     try {
-  //       const data = await fetchAccountData();
-  //       if (data) {
-  //         setAccount(data);
-  //       } else {
-  //         setError("Failed to fetch account data");
-  //       }
-  //     } catch (err) {
-  //       setError(err.message);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-
-  //   getData();
-  // }, []); // ✅ Empty dependency array to run only on mount
-
   const handleLogin = async () => {
     if (!username || !password) {
       setAlert({ type: "error", message: "Email or password is missing!" });
@@ -55,6 +36,9 @@ export default function DisplayAuth() {
       if (res.success) {
         localStorage.setItem("username", res.data.username);
         localStorage.setItem("token", res.data.token);
+        localStorage.setItem("user_id", res.data.user_id);
+
+        console.log(localStorage.getItem("user_id"));
         navigate("/home");
       } else {
         setAlert({ type: "error", message: "Incorrect Username or Password" });

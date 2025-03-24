@@ -7,7 +7,9 @@ import ButtonWithSound from "./ButtonWithSound";
 
 // import ShowStatusWinning from "./ShowStatusWinning";
 
-const socket = io("http://localhost:3000");
+const socket = io("ws://localhost:3000", {
+  transports: ["websocket"],
+});
 
 const getToken = () => localStorage.getItem("token");
 const getUsername = () => localStorage.getItem("username") || "Guest";
@@ -121,23 +123,6 @@ const DisplayAccount = () => {
           </p>
         </div>
         <div className="flex w-[75%] gap-[50px] justify-center pl-5 mt-5">
-          {/* TOTAL WINS */}
-          <div className="flex flex-col h-[120px] w-[38%] items-center justify-center">
-            <div className="flex flex-col w-[200px] h-[150px] bg-[#C14600] border-[#FFCF50] border-4 rounded-md shadow-md ">
-              <p className="text-[18x] pl-[10px] pt-[7px]">TOTAL WINS</p>
-              <p className="text-[40px] pl-[30px] pb-5">$1,000.00</p>
-            </div>
-            <div className="w-[300px]">
-              <button
-                onClick={() => {
-                  setPopUpWithdraw(true);
-                }}
-                className="ml-[115px] mt-2 text-[24px] bg-[#41644A] px-4 py-0"
-              >
-                WITHDRAW CASH
-              </button>
-            </div>
-          </div>
           {/* WALLET BALANCE */}
           <div className="flex flex-col  h-[120px] w-[38%] items-center justify-center ">
             <div className="flex flex-col w-[230px] h-[120px] bg-[#41644A] border-[#FFCF50] border-4 rounded-md shadow-md ">
@@ -152,6 +137,16 @@ const DisplayAccount = () => {
                 className="ml-[200px] mt-2 text-[24px] bg-[#C14600] px-4 py-0"
               >
                 TOP UP
+              </button>
+            </div>
+            <div className="w-[300px]">
+              <button
+                onClick={() => {
+                  setPopUpWithdraw(true);
+                }}
+                className="ml-[115px] mt-2 text-[24px] bg-[#41644A] px-4 py-0"
+              >
+                WITHDRAW CASH
               </button>
             </div>
           </div>

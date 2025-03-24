@@ -17,40 +17,33 @@ class DrawController {
 
   async createDraw(req, res) {
     try {
-      const winningNumbers = this.generateWinningNumbers();
+      // const winningNumber = this.generateWinningNumbers();
       const winningNumber = [1, 2, 3, 4, 5, 6];
-      // const response = await this.draw.storeDrawResult(winningNumbers);
-      // console.log(response);
+      const formattedNumbers = winningNumber.map((num) =>
+        num < 10 ? `0${num}` : `${num}`
+      );
 
-      console.log("🎉 Winning Numbers:", winningNumbers);
-
-      // // ✅ Fetch only bets for the current round
-      const currentDrawId = await this.draw.getLatestDrawId();
-      // console.log(currentDrawId);
-      const allBets = await this.bet.getBetsByDraw(currentDrawId);
-      console.log(allBets);
-      const result = await this.draw.getLatestDraw();
-      console.log(result);
-
-      // ✅ Store draw result in the database
+      const winningNumbers = formattedNumbers.join("-");
       const response = await this.draw.storeDrawResult(winningNumbers);
 
-      console.log(response);
+      const currentDrawId = await this.draw.getLatestDrawId();
+      const allBets = await this.bet.getBetsByDraw(currentDrawId);
+      const result = await this.draw.getLatestDraw();
 
       let winningUsers = [];
 
       for (const bet of allBets) {
         // ✅ Convert bet_number "XX-XX-XX-XX-XX-XX" into an array
         const betNumbersArray = bet.bet_number.split("-").map(Number);
-        console.log("🎟️ Bet Numbers:", betNumbersArray);
 
         // ✅ Compare sorted arrays for an exact match
         if (
-          JSON.stringify(betNumbersArray.sort()) ===
-          JSON.stringify(winningNumber)
+          JSON.stringify(betNumbersArray.sort((a, b) => a - b)) ===
+          JSON.stringify(winningNumber.sort((a, b) => a - b))
         )
           winningUsers.push(bet.user_id);
       }
+
       res.send({
         success: true,
         message: "Draw result stored and bets processed successfully.",
@@ -95,8 +88,28 @@ class DrawController {
           .json({ success: false, message: "No draw found." });
       }
 
-      console.log(result);
       return res.json({ success: true, result: result });
+    } catch (err) {
+      console.error("❌ Error in getLatestDraw:", err);
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
+    }
+  }
+
+  async getWinningUsersByLatestDraw(req, res) {
+    try {
+      const result = await this.draw.getWinningUsersByLatestDraw();
+      if (!result) {
+        return res
+          .status(404)
+          .json({ success: false, message: "No winner found." });
+      }
+
+      return res.json({
+        success: true,
+        result: result.length > 0 ? result : "No winner Found.",
+      });
     } catch (err) {
       console.error("❌ Error in getLatestDraw:", err);
       res

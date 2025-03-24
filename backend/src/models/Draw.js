@@ -1,8 +1,10 @@
 import { connection } from "../core/database.js";
+import Prize from "./Prize.js";
 
 class Draw {
   constructor() {
     this.db = connection;
+    this.prize = new Prize();
   }
 
   async createNewDraw() {
@@ -10,6 +12,7 @@ class Draw {
       const [result] = await connection.execute(
         "INSERT INTO draws (numbers, status, created_at) VALUES (NULL, 'open', NOW())"
       );
+
       return result.insertId;
     } catch (err) {
       console.error("Error in createNewRound:", err);
@@ -31,49 +34,19 @@ class Draw {
    */
   async storeDrawResult(winningNumbers) {
     try {
-      console.log("Winning Numbers:", winningNumbers);
-
-      // Convert array to string
-      const winningNumbersStr = winningNumbers.join("-");
-
       // ✅ Get the latest draw ID
       const currentDrawId = await this.getLatestDrawId();
-
-      // ✅ Fetch the latest pot_id
-      const [potData] = await this.db.execute(
-        "SELECT prize_id FROM prize ORDER BY prize_id DESC LIMIT 1"
-      );
-
-      const currentPotId = potData.length > 0 ? potData[0].prize_id : null;
 
       // ✅ Update the latest draw with winning numbers
       const [updateResult] = await this.db.execute(
         "UPDATE draws SET numbers = ?, status = 'completed', created_at = NOW() WHERE draw_id = ?",
-        [winningNumbersStr, currentDrawId]
+        [winningNumbers, currentDrawId]
       );
 
       console.log("✅ Draw result updated for draw ID:", currentDrawId);
 
-      // ✅ Find winning bets
-      const [winningBets] = await this.db.execute(
-        `SELECT user_id, bet_id
-       FROM bets 
-       WHERE draw_id = ? AND FIND_IN_SET(bet_number, ?) 
-       GROUP BY user_id`,
-        [currentDrawId, winningNumbersStr]
-      );
-
-      if (winningBets.length > 0) {
-        console.log("🎉 Winners Found:", winningBets);
-
-        for (const winner of winningBets[0]) {
-          // ✅ Insert only the first winning bet per user
-          await this.db.execute(
-            "INSERT INTO winners (user_id, draw_id, bet_id) VALUES (?, ?, ?)",
-            [winner.user_id, currentDrawId, winner.bet_id]
-          );
-        }
-      }
+      // ✅ check Winners
+      await this.checkWinner(currentDrawId, winningNumbers);
 
       // ✅ Start a new draw
       await this.createNewDraw();
@@ -81,6 +54,40 @@ class Draw {
       return updateResult;
     } catch (err) {
       console.error("<error> Draw.storeDrawResult", err);
+      throw err;
+    }
+  }
+
+  async checkWinner(draw_id, numbers) {
+    try {
+      // ✅ Find winning bets
+      const [winningBets] = await this.db.execute(
+        `SELECT user_id, bet_id
+       FROM bets 
+       WHERE draw_id = ? AND FIND_IN_SET(bet_number, ?)
+       GROUP BY user_id`,
+        [draw_id, numbers]
+      );
+
+      if (!winningBets.length) return "No Winner Found";
+
+      let count = 0;
+
+      for (const winner of winningBets) {
+        count += 1;
+        // ✅ Insert each winner into the `winners` table
+        await this.db.execute(
+          "INSERT INTO winners (user_id, draw_id, bet_id) VALUES (?, ?, ?)",
+          [winner.user_id, draw_id, winner.bet_id]
+        );
+      }
+
+      // ✅ Call `distributePrizes` with all winners
+      await this.prize.distributePrizes(winningBets);
+
+      return "Winners Processed Successfully";
+    } catch (err) {
+      console.error("<error> checkWinner", err);
       throw err;
     }
   }
@@ -93,35 +100,34 @@ class Draw {
     try {
       // Get the latest draw result
       const [latestDraw] = await connection.execute(
-        "SELECT draw_id, round_id, winning_no FROM draw_result ORDER BY created_at DESC LIMIT 1"
+        "SELECT draw_id FROM draws WHERE status = 'completed' ORDER BY created_at DESC LIMIT 1"
       );
 
       if (latestDraw.length === 0) {
         return []; // No draw results found
       }
 
-      const { draw_id, round_id, winning_no } = latestDraw[0];
+      const { draw_id } = latestDraw[0];
 
       // Fetch winners for the latest draw
       const [winners] = await connection.execute(
         `SELECT 
-                    wr.win_id, 
+                    wr.winner_id, 
                     wr.draw_id, 
                     wr.bet_id, 
-                    u.username, 
-                    b.bet_amount, 
+                    u.user_id, 
                     b.bet_number, 
-                    dr.winning_no 
-                 FROM win_result wr
+                    dr.numbers 
+                 FROM winners wr
                  JOIN users u ON wr.user_id = u.user_id
-                 JOIN bet b ON wr.bet_id = b.bet_id
-                 JOIN draw_result dr ON wr.draw_id = dr.draw_id
-                 WHERE dr.round_id = ?
-                 ORDER BY wr.win_id DESC`,
-        [round_id]
+                 JOIN bets b ON wr.bet_id = b.bet_id
+                 JOIN draws dr ON wr.draw_id = dr.draw_id
+                 WHERE dr.draw_id = ? AND dr.status = 'completed'
+                 ORDER BY wr.winner_id DESC`,
+        [draw_id]
       );
 
-      return winners.length > 0 ? winners : [];
+      return winners.length > 0 ? winners || [] : [];
     } catch (err) {
       console.error("<error> Draw.getWinningUsersByLatestDraw", err);
       throw err;
@@ -150,7 +156,19 @@ class Draw {
         "SELECT * FROM draws where status = 'completed' ORDER BY created_at DESC LIMIT 1"
       );
 
-      // console.log(result);
+      return result[0];
+    } catch (err) {
+      console.error("<error> Draw.getLatestDraw", err);
+      throw err;
+    }
+  }
+
+  async getAlldrawResultByDate() {
+    try {
+      const [result] = await this.db.execute(
+        "SELECT * FROM draws where status = 'completed' ORDER BY created_at DESC LIMIT 10"
+      );
+
       return result[0];
     } catch (err) {
       console.error("<error> Draw.getLatestDraw", err);

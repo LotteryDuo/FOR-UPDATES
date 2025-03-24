@@ -1,9 +1,11 @@
 import jwt from "jsonwebtoken";
 import User from "../../models/user.js";
+import Draw from "../../models/Draw.js";
 
 class AccountController {
   constructor(io) {
     this.user = new User();
+    this.draw = new Draw();
     this.io = io;
   }
 
@@ -51,6 +53,8 @@ class AccountController {
       const { username, PASSWORD } = req.body || {};
 
       const result = await this.user.verify(username, PASSWORD);
+
+      console.log(result.user_id);
 
       if (!result?.user_id) {
         return res.json({
@@ -119,41 +123,31 @@ class AccountController {
     }
   }
 
-  // async withdraw(req, res) {
-  //   try {
-  //     const { type, amount } = req.body || {};
+  async getPrevBet(req, res) {
+    try {
+      const currentDrawId = await this.draw.getLatestDrawId();
+      const prevBet = await this.user.getPrevBet(
+        res.locals.user_id,
+        currentDrawId
+      );
 
-  //     if (!amount || isNaN(amount)) {
-  //       return res.json({
-  //         success: false,
-  //         message: "Invalid amount",
-  //       });
-  //     }
+      if (!prevBet) res.json({ success: false, data: [] });
 
-  //     console.log(res.locals.username);
+      // Log bet numbers properly
+      prevBet.forEach((bet) => console.log(bet.bet_number));
 
-  //     const response = await this.user.updateBalance(
-  //       res.locals.username,
-  //       amount,
-  //       type
-  //     );
-
-  //     res.json({
-  //       success: true,
-  //       data: {
-  //         message: "Withdrawal successful",
-  //         amount: req.params.amount,
-  //       },
-  //     });
-  //     res.end();
-  //   } catch (err) {
-  //     res.json({
-  //       success: false,
-  //       message: err.toString(),
-  //     });
-  //     res.end();
-  //   }
-  // }
+      return res.json({
+        success: true,
+        data: prevBet, // Send the array of bets
+      });
+      res.end();
+    } catch (err) {
+      res.json({
+        success: false,
+        message: err.toString(),
+      });
+    }
+  }
 
   /**
    * POST amount to deposit or withdraw
@@ -167,7 +161,8 @@ class AccountController {
 
   async updateBalance(req, res) {
     try {
-      const { type, amount } = req.body || {};
+      const { type } = req.body || {};
+      const amount = req.body?.amount || req.params?.amount;
 
       if (!amount || isNaN(amount)) {
         return res.json({
