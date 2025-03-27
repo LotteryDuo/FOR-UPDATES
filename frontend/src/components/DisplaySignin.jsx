@@ -4,8 +4,7 @@ import ButtonWithSound from "./ButtonWithSound.jsx";
 import Alert from "./Alert.jsx";
 import { useNavigate } from "react-router-dom";
 
-import fetchAccountData from "../utils/fetchAccountData.jsx";
-const API = import.meta.env.VITE_API_URL;
+import { Login } from "../api/auth.jsx";
 
 export default function DisplayAuth() {
   const navigate = useNavigate();
@@ -14,39 +13,6 @@ export default function DisplayAuth() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-
-  const handleLogin = async () => {
-    if (!username || !password) {
-      setAlert({ type: "error", message: "Email or password is missing!" });
-      return;
-    }
-
-    try {
-      const response = await fetch(`${API}/account/login`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          apikey: "hello",
-        },
-        body: JSON.stringify({ username, PASSWORD: password }),
-      });
-
-      const res = await response.json();
-
-      if (res.success) {
-        localStorage.setItem("username", res.data.username);
-        localStorage.setItem("token", res.data.token);
-        localStorage.setItem("user_id", res.data.user_id);
-
-        console.log(localStorage.getItem("user_id"));
-        navigate("/home");
-      } else {
-        setAlert({ type: "error", message: "Incorrect Username or Password" });
-      }
-    } catch (err) {
-      console.log(err);
-    }
-  };
 
   return (
     <div
@@ -153,7 +119,11 @@ export default function DisplayAuth() {
             </StyledInput>
 
             <div className="flex mb-3 relative items-center justify-center">
-              <StyledButton onClick={handleLogin}>LOG IN ACCOUNT</StyledButton>
+              <StyledButton
+                onClick={() => Login(username, password, navigate, setAlert)}
+              >
+                LOG IN ACCOUNT
+              </StyledButton>
             </div>
           </>
         )}

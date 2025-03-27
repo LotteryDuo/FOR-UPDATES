@@ -14,16 +14,11 @@ import fetchAccountData from "../utils/fetchAccountData.jsx";
 
 import fetchPrevBet from "../utils/fetchPrevBet.js";
 
-import buyTicket from "../utils/buyTicket.js";
-
 import CountDown from "./CountDown";
-import placeBet from "../utils/placeBet.js";
 
 import fetchWinners from "../utils/fetchWinners.js";
 
-const socket = io("ws://localhost:3000", {
-  transports: ["websocket"],
-});
+const socket = io("http://localhost:3000");
 
 const getToken = () => localStorage.getItem("token");
 
@@ -32,6 +27,8 @@ const getUsername = () => localStorage.getItem("username");
 const getUserId = () => localStorage.getItem("user_id");
 
 const DisplayHome = () => {
+  const [ticket, setTicket] = useState(0);
+  const [balance, setBalance] = useState(0);
   const navigator = useNavigate();
   const [accountBets, setAccountBets] = useState([]);
   const [accountData, setAccountData] = useState(null);
@@ -80,35 +77,44 @@ const DisplayHome = () => {
   };
 
   const handleBuyTicket = async (ticketPrice = 20, ticketQty) => {
+    const token = getToken();
     if (!ticketQty || isNaN(ticketQty) || ticketQty <= 0) {
       console.error("Invalid ticket quantity");
       return;
     }
 
-    // const sendToServerBuyTicket = () => {
-    //   socket.emit("buy-ticket", { ticketPrice, ticketQty });
-    //   console.log(localStorage.getItem("user_id"));
-    //   // console.log(user_id, "alksndasndklasmdl;ksa");
-    // };
+    socket.emit("buy-ticket", { ticketPrice, ticketQty, token });
 
-    // sendToServerBuyTicket(); // Call the function to emit event
-
-    // Uncomment this if you want to send a request to the backend for further processing
-    try {
-      const response = await buyTicket(ticketPrice, ticketQty);
-      console.log("Ticket purchased successfully:", response);
-      const data = await fetchAccountData();
-      if (data) setAccountData(data);
-    } catch (error) {
-      console.error("Failed to buy ticket:", error.message);
-    }
+    // Listen for a response from the server
+    socket.on("ticket-purchase-success", (data) => {
+      const { tickets, balance, message } = data;
+      setTicket(tickets);
+      setBalance(balance);
+      console.log(tickets, message, "aksdkjasdjkas"); // Expected: 5 "Ticket bought successfully!" aksdkjasdjkas
+    });
   };
 
   const handlePlaceBet = async (bet_number) => {
+    const token = getToken();
     if (!bet_number) {
       console.error("Invalid bet number");
       return;
     }
+
+    socket.emit("place-bet", { bet_number, token });
+
+    socket.on("place-bet-success", (data) => {
+      const { numbers, bet_id, message } = data;
+
+      console.log(numbers, bet_id, message, "alsdansdkjasndjkan");
+      // setTicket(bet);
+    });
+
+    socket.on("prev-bet", (data) => {
+      const { bet_data } = data;
+
+      setAccountBets(bet_data);
+    });
 
     // const sendToServerBet = () => {
     //   socket.emit("place-bet", {});
@@ -116,22 +122,22 @@ const DisplayHome = () => {
 
     // sendToServerBet();
 
-    try {
-      const response = await placeBet(bet_number);
-      console.log("Ticket Placed successfully:", response);
-      const bets = await fetchPrevBet();
-      if (bets.length > 0) {
-        setAccountBets(bets);
-        setPlaceBet(true);
-      }
-      const data = await fetchAccountData();
+    // try {
+    //   const response = await placeBet(bet_number);
+    //   console.log("Ticket Placed successfully:", response);
+    //   const bets = await fetchPrevBet();
+    //   if (bets.length > 0) {
+    //     setAccountBets(bets);
+    //     setPlaceBet(true);
+    //   }
+    //   const data = await fetchAccountData();
 
-      if (data) setAccountData(data);
+    //   if (data) setAccountData(data);
 
-      setLottoInput("");
-    } catch (error) {
-      console.error("Failed to buy ticket:", error.message);
-    }
+    //   setLottoInput("");
+    // } catch (error) {
+    //   console.error("Failed to buy ticket:", error.message);
+    // }
   };
 
   const navigateHistory = () => {
@@ -229,6 +235,8 @@ const DisplayHome = () => {
 
         if (data) {
           setAccountData(data);
+          setTicket(data.tickets);
+          setBalance(data.balance);
         } else {
           setError("Failed to fetch account data");
         }
@@ -242,27 +250,27 @@ const DisplayHome = () => {
     getData();
   }, []); // ✅ Empty dependency array to run only on mount
 
-  useEffect(() => {
-    const getBets = async () => {
-      try {
-        const bets = await fetchPrevBet();
+  // useEffect(() => {
+  //   const getBets = async () => {
+  //     try {
+  //       const bets = await fetchPrevBet();
 
-        if (bets.length > 0) {
-          setAccountBets(bets);
-          setPlaceBet(true);
-          console.log(bets);
-        } else {
-          console.log("no Bets found.");
-        }
-      } catch (err) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
+  //       if (bets.length > 0) {
+  //         setAccountBets(bets);
+  //         setPlaceBet(true);
+  //         console.log(bets);
+  //       } else {
+  //         console.log("no Bets found.");
+  //       }
+  //     } catch (err) {
+  //       setError(err.message);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
 
-    getBets();
-  }, []); // ✅ Empty dependency array to run only on mount
+  //   getBets();
+  // }, []); // ✅ Empty dependency array to run only on mount
 
   useEffect(() => {
     if (timeLeft !== 0) return; // ✅ Only run when timeLeft is exactly 0
@@ -456,7 +464,7 @@ const DisplayHome = () => {
                 fontSize: "2rem",
               }}
             >
-              {accountData.tickets}
+              {ticket}
             </span>
           </div>
           <div className="flex justify-between items-center w-[300px] h-[60px]">
@@ -539,7 +547,7 @@ const DisplayHome = () => {
                 }}
               ></div>
               <p className="ml-2 text-center text-white text-[36px]">
-                $ {accountData.balance}
+                $ {balance}
               </p>
             </div>
           </div>
@@ -577,7 +585,7 @@ const DisplayHome = () => {
                     key={index}
                     className="ml-2 text-center text-white text-[2rem]"
                   >
-                    {`${index + 1}. ${bet}`}
+                    {`${index + 1}. ${bet.bet_number}`}
                   </p>
                 ))}
               </div>

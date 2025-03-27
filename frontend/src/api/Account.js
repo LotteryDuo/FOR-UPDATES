@@ -1,0 +1,3 @@
+const updateBalance = () => {};
+
+export { updateBalance };

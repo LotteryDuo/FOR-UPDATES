@@ -11,7 +11,7 @@ import { Server } from "socket.io";
 
 import { startCountdown } from "./public/startCountdown.js";
 
-import fethcDrawData from "./src/utils/fetchDrawData.js";
+import { socketSetup } from "./public/sockets/socketManager.js";
 
 const IS_PRODUCTION = process.env.ENV === "production";
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
@@ -82,15 +82,11 @@ async function createCustomServer() {
 
   io.on("connection", async (socket) => {
     console.log("user connected");
-    startCountdown(io);
+    // startCountdown(io);
 
-    const nums = await fethcDrawData();
+    // socket.emit("welcome", "A message from the server");
 
-    // console.log(nums);
-
-    socket.emit("draws", nums.result.numbers);
-
-    socket.emit("welcome", "A message from the server");
+    await socketSetup(socket);
   });
 
   console.log("console", PORT);
