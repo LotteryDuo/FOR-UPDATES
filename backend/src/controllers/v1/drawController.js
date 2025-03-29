@@ -24,25 +24,8 @@ class DrawController {
       );
 
       const winningNumbers = formattedNumbers.join("-");
-      const response = await this.draw.storeDrawResult(winningNumbers);
 
-      const currentDrawId = await this.draw.getLatestDrawId();
-      const allBets = await this.bet.getBetsByDraw(currentDrawId);
-      const result = await this.draw.getLatestDraw();
-
-      let winningUsers = [];
-
-      for (const bet of allBets) {
-        // ✅ Convert bet_number "XX-XX-XX-XX-XX-XX" into an array
-        const betNumbersArray = bet.bet_number.split("-").map(Number);
-
-        // ✅ Compare sorted arrays for an exact match
-        if (
-          JSON.stringify(betNumbersArray.sort((a, b) => a - b)) ===
-          JSON.stringify(winningNumber.sort((a, b) => a - b))
-        )
-          winningUsers.push(bet.user_id);
-      }
+      await this.draw.storeDrawResult(winningNumbers);
 
       res.send({
         success: true,
@@ -108,10 +91,38 @@ class DrawController {
 
       return res.json({
         success: true,
-        result: result.length > 0 ? result : "No winner Found.",
+        result: result.length > 0 ? result : [],
       });
     } catch (err) {
       console.error("❌ Error in getLatestDraw:", err);
+      res
+        .status(500)
+        .json({ success: false, message: "Internal server error" });
+    }
+  }
+
+  async getUserBetStatusByLatestDraw(req, res) {
+    try {
+      const status = req.params.status;
+
+      console.log(status);
+
+      const bettors = await this.draw.getUserBetStatusByLatestDraw(status); // ✅ Call the model function
+
+      if (bettors.length === 0) {
+        return res.status(404).json({
+          success: false,
+          message: "No bettors found for the last completed draw.",
+        });
+      }
+
+      res.json({
+        success: true,
+        message: "Bettors retrieved successfully.",
+        result: bettors.length > 0 ? bettors : [],
+      });
+    } catch (err) {
+      console.error("❌ Error in getUserBetsStatusByLatestDraw:", err);
       res
         .status(500)
         .json({ success: false, message: "Internal server error" });

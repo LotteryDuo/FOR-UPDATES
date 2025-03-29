@@ -17,10 +17,9 @@ betRouter.use(authorization);
 betRouter.post("/", authentication, bet.placeBet.bind(bet));
 
 /**
- * Process bets (Check winners, update pot)
- * @method POST
- * @path /bets/process
+ * @method GET
+ * @path /bets/bettors
  */
-// betRouter.post("/process", authentication, bet.processBets.bind(bet));
+betRouter.get("/bettors", authentication, bet.getBettors.bind(bet));
 
 export default betRouter;

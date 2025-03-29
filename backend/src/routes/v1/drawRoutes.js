@@ -2,7 +2,6 @@ import { Router } from "express";
 import DrawResultController from "../../controllers/v1/drawController.js";
 
 import authorization from "../../middlewares/authorization.js";
-import authentication from "../../middlewares/authentication.js";
 
 const drawRouter = new Router();
 const draw = new DrawResultController();
@@ -29,5 +28,12 @@ drawRouter.get("/latest", draw.getLatestDrawResult.bind(draw));
  * path /v1/draw/winners
  */
 drawRouter.get("/winners", draw.getWinningUsersByLatestDraw.bind(draw));
+
+/**
+ * Get the user by latest draw
+ * @method GET
+ * path /v1/draw/winners
+ */
+drawRouter.get("/bettor/:status", draw.getUserBetStatusByLatestDraw.bind(draw));
 
 export default drawRouter;

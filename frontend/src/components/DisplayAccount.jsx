@@ -1,18 +1,15 @@
 import React, { useState, useEffect } from "react";
 import { Wallet, User, LogOut, CodeSquare, ChevronLeft } from "lucide-react";
 import { useNavigate } from "react-router-dom";
-import { io } from "socket.io-client";
-import fetchAccountData from "../utils/fetchAccountData.jsx";
+import { fetchAccountData } from "../api/Account.js";
 import ButtonWithSound from "./ButtonWithSound";
+import useSocket from "../hooks/useSocket.js";
 
 // import ShowStatusWinning from "./ShowStatusWinning";
 
-const socket = io("ws://localhost:3000", {
-  transports: ["websocket"],
-});
-
 const getToken = () => localStorage.getItem("token");
 const getUsername = () => localStorage.getItem("username") || "Guest";
+const get_user_id = () => localStorage.getItem("user_id") || "Guest";
 
 const DisplayAccount = () => {
   const [accountData, setAccountData] = useState("");
@@ -22,14 +19,50 @@ const DisplayAccount = () => {
   const [popupTopUp, setPopUpTopUp] = useState(false);
   const [showWinning, setShowWinning] = useState(null);
   const navigate = useNavigate();
+  const { isConnected, socket } = useSocket();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const [withdrawInput, setWithdrawInput] = useState("");
+  const [topUpInput, setTopUpInput] = useState("");
+
+  const handleWithdrawInputChange = (e) => {
+    const value = e.target.value;
+
+    setWithdrawInput(value);
+  };
+  const handleTopUpInputChange = (e) => {
+    const value = e.target.value;
+    setTopUpInput(value);
+  };
+
+  const updateBalance = async (type, amount) => {
+    const token = getToken();
+
+    if (!amount || isNaN(amount) || amount <= 0) {
+      console.error("Invalid amount");
+      return;
+    }
+    socket.emit(`${type}`, { type, amount, token });
+
+    socket.on(`${type}-success`, (data) => {
+      const { message, balance } = data;
+      console.log(message, "aksdkjasdjkas"); // Expected: 5 "Ticket bought successfully!" aksdkjasdjkas
+      setBalance(balance);
+    });
+  };
 
   useEffect(() => {
+    if (!isConnected) return;
+    const token = getToken();
     const getData = async () => {
       try {
-        const data = await fetchAccountData();
+        const data = await fetchAccountData(token);
 
         if (data) {
-          setAccountData(data);
+          setAccountData(data.data);
+          setBalance(data.data.balance);
+          console.log("Account data:", data.data);
         } else {
           setError("Failed to fetch account data");
         }
@@ -41,9 +74,11 @@ const DisplayAccount = () => {
     };
 
     getData();
-  }, []); // ✅ Empty dependency array to run only on mount
+  }, [isConnected, socket]); // ✅ Empty dependency array to run only on mount
 
   useEffect(() => {
+    if (!isConnected) return;
+
     socket.on("updateBalance", (newBalance) => {
       setBalance(newBalance);
     });
@@ -51,14 +86,15 @@ const DisplayAccount = () => {
     return () => {
       socket.off("updateBalance");
     };
-  }, []);
+  }, [isConnected, socket]);
 
   const handleLogout = () => {
-    const username = getUsername();
+    if (!isConnected) return;
+    const userId = get_user_id();
 
     // Notify server that user is disconnecting
-    if (username) {
-      socket.emit("userDisconnected", { username });
+    if (userId) {
+      socket.emit("userDisconnect", userId);
     }
 
     // Clear session and redirect to login
@@ -127,9 +163,7 @@ const DisplayAccount = () => {
           <div className="flex flex-col  h-[120px] w-[38%] items-center justify-center ">
             <div className="flex flex-col w-[230px] h-[120px] bg-[#41644A] border-[#FFCF50] border-4 rounded-md shadow-md ">
               <p className="text-[18px] pl-[10px] pt-[7px]">WALLET BALANCE</p>
-              <p className="text-[40px] pl-[20px] pb-5">
-                ${accountData.balance}
-              </p>
+              <p className="text-[40px] pl-[20px] pb-5">${balance}</p>
             </div>
             <div className="w-[300px]">
               <button
@@ -217,63 +251,6 @@ const DisplayAccount = () => {
         </div>
       )}
 
-      {/*WITHDRAW Popup */}
-      {popupWithdraw && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-[#FFCF50] p-20 rounded-lg shadow-lg text-center">
-            <h2 className="text-lg font-semibold">ENTER AMOUNT TO WITHDRAW</h2>
-            <div className="inset-0">
-              <input
-                type="email"
-                className="w-full p-2 border-b-2 border-black bg-transparent text-2xl text-black mb-3 focus:outline-none"
-              />
-            </div>
-            <div className="flex justify-center gap-4">
-              <ButtonWithSound
-                onClick={() => setPopUpWithdraw(false)}
-                className="bg-[#C14600] px-4 py-2 rounded-lg text-white transition"
-              >
-                Cancel
-              </ButtonWithSound>
-              <ButtonWithSound
-                onClick={handleLogout}
-                className="bg-[#41644A] px-4 py-2 rounded-lg text-white transition"
-              >
-                WITHDRAW CASH
-              </ButtonWithSound>
-            </div>
-          </div>
-        </div>
-      )}
-      {/*TOP UP Popup */}
-      {popupTopUp && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-[#FFCF50] p-20 rounded-lg shadow-lg text-center">
-            <h2 className="text-lg font-semibold">ENTER AMOUNT TO TOP-UP</h2>
-            <div className="">
-              <input
-                type="email"
-                className="w-full p-2 border-b-2 border-black bg-transparent text-2xl text-black mb-3 focus:outline-none"
-              />
-            </div>
-            <div className="flex justify-center gap-4">
-              <ButtonWithSound
-                onClick={() => setPopUpTopUp(false)}
-                className="bg-[#C14600] px-4 py-2 rounded-lg text-white transition"
-              >
-                Cancel
-              </ButtonWithSound>
-              <ButtonWithSound
-                onClick={handleLogout}
-                className="bg-[#41644A] px-4 py-2 rounded-lg text-white transition"
-              >
-                TOP UP
-              </ButtonWithSound>
-            </div>
-          </div>
-        </div>
-      )}
-
       {showWinning === "win" && (
         <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-50">
           <div className="flex flex-col items-center">
@@ -302,6 +279,81 @@ const DisplayAccount = () => {
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
           <div className="bg-[#9E9E9E] p-20 rounded-lg shadow-lg text-center">
             <h2 className="text-[50px] font-semibold text-black">YOU LOST!</h2>
+          </div>
+        </div>
+      )}
+
+      {/*WITHDRAW Popup */}
+      {popupWithdraw && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-[#FFCF50] p-20 rounded-lg shadow-lg text-center">
+            <h2 className="text-lg font-semibold">ENTER AMOUNT TO WITHDRAW</h2>
+            <div className="inset-0">
+              <input
+                type="email"
+                value={withdrawInput}
+                onChange={handleWithdrawInputChange}
+                className="w-full p-2 border-b-2 border-black bg-transparent text-2xl text-black mb-3 focus:outline-none"
+              />
+            </div>
+            <div className="flex justify-center gap-4">
+              <ButtonWithSound
+                onClick={() => setPopUpWithdraw(false)}
+                className="bg-[#C14600] px-4 py-2 rounded-lg text-white transition"
+              >
+                Cancel
+              </ButtonWithSound>
+              <ButtonWithSound
+                onClick={() => {
+                  setPopUpWithdraw(false),
+                    updateBalance(
+                      "withdraw",
+                      Number(withdrawInput),
+                      setWithdrawInput("")
+                    );
+                }}
+                className="bg-[#41644A] px-4 py-2 rounded-lg text-white transition"
+              >
+                WITHDRAW CASH
+              </ButtonWithSound>
+            </div>
+          </div>
+        </div>
+      )}
+      {/*TOP UP Popup */}
+      {popupTopUp && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+          <div className="bg-[#FFCF50] p-20 rounded-lg shadow-lg text-center">
+            <h2 className="text-lg font-semibold">ENTER AMOUNT TO TOP-UP</h2>
+            <div className="">
+              <input
+                type="email"
+                value={topUpInput}
+                onChange={handleTopUpInputChange}
+                className="w-full p-2 border-b-2 border-black bg-transparent text-2xl text-black mb-3 focus:outline-none"
+              />
+            </div>
+            <div className="flex justify-center gap-4">
+              <ButtonWithSound
+                onClick={() => setPopUpTopUp(false)}
+                className="bg-[#C14600] px-4 py-2 rounded-lg text-white transition"
+              >
+                Cancel
+              </ButtonWithSound>
+              <ButtonWithSound
+                onClick={() => {
+                  setPopUpTopUp(false),
+                    updateBalance(
+                      "deposit",
+                      Number(topUpInput),
+                      setTopUpInput("")
+                    );
+                }}
+                className="bg-[#41644A] px-4 py-2 rounded-lg text-white transition"
+              >
+                TOP UP
+              </ButtonWithSound>
+            </div>
           </div>
         </div>
       )}

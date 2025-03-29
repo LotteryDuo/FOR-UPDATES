@@ -7,8 +7,9 @@ import jwt from "jsonwebtoken";
  * @param {import('express').Response} res
  * @param {import('express').NextFunction} next
  */
-export default function authorization(req, res, next) {
+export default function authentication(req, res, next) {
   const token = req.headers.token;
+  console.log("token", token);
 
   if (!token) {
     res.json({

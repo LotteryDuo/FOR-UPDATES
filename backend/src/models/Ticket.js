@@ -35,6 +35,8 @@ class Ticket {
         [userId, ticketQuantity, ticketQuantity]
       );
 
+      const { tickets, balance } = await this.user.get(userId);
+
       await conn.commit();
       return {
         success: true,
@@ -42,6 +44,8 @@ class Ticket {
         data: {
           qty: ticketQuantity,
           user_id: userId,
+          balance: balance,
+          tickets: tickets,
         },
       };
     } catch (err) {

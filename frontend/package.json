@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "PORT=3000 node server.js & PORT=3001 node server.js & PORT=3003 node server.js",
+    "dev": "PORT=3000 node server.js & PORT=3001 node server.js & PORT=3002 node server.js",
     "build": "npm run build:client && npm run build:server",
     "build:client": "vite build --outDir dist/client",
     "build:server": "vite build --outDir dist/server --ssr src/server-entry.jsx",
@@ -13,7 +13,9 @@
   },
   "dependencies": {
     "autoprefixer": "^10.4.21",
+    "axios": "^1.8.4",
     "cross-env": "^7.0.3",
+    "dotenv": "^16.4.7",
     "express": "^4.21.2",
     "lucide-react": "^0.479.0",
     "postcss": "^8.5.3",

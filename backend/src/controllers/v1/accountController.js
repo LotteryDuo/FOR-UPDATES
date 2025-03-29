@@ -138,7 +138,9 @@ class AccountController {
 
       return res.json({
         success: true,
-        data: prevBet, // Send the array of bets
+        data: {
+          result: prevBet,
+        }, // Send the array of bets
       });
       res.end();
     } catch (err) {

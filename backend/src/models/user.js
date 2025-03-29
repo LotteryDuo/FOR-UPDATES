@@ -67,7 +67,7 @@ class User {
       const [results] = await connection.execute(
         `SELECT u.user_id, u.username, u.balance, COALESCE(SUM(t.ticket_count), 0) AS ticket_count
        FROM users u
-       LEFT JOIN tickets t ON u.user_id = t.user_id AND t.status = 'unused'  -- ✅ Move condition to JOIN
+       LEFT JOIN tickets t ON u.user_id = t.user_id AND t.status = 'unused'
        WHERE u.user_id = ? 
        GROUP BY u.user_id, u.username, u.balance`,
         [userId]
@@ -160,6 +160,8 @@ class User {
           type === "buy"
             ? "Ticket purchased successfully"
             : "Transaction successful",
+        balance: updatedUser[0].balance,
+        user_id: updatedUser[0].user_id,
         users: updatedUser[0],
       };
     } catch (err) {
@@ -198,7 +200,7 @@ class User {
 
   async getPrevBet(user_id, draw_id) {
     try {
-      const [result] = await connection.execute(
+      const result = await connection.execute(
         `SELECT 
             b.bet_id, 
             b.user_id, 
@@ -212,7 +214,7 @@ class User {
         [user_id, draw_id]
       );
 
-      return result || [];
+      return result[0];
     } catch (err) {
       console.error("<error> user.getPrevBet", err);
       throw err;
@@ -238,6 +240,33 @@ class User {
       );
     } catch (err) {
       console.error("<error> user.getLastWinHistory", err);
+      throw err;
+    }
+  }
+
+  async getUserHistory(user_id) {
+    try {
+      const [result] = await connection.execute(
+        `SELECT 
+            b.bet_id, 
+            b.user_id, 
+            b.round_id, 
+            b.bet_amount, 
+            b.bet_number, 
+            b.created_at, 
+            CASE 
+                WHEN d.bet_id IS NOT NULL THEN 'Won'
+                ELSE 'Lost'
+            END AS status
+        FROM bet AS b
+        LEFT JOIN draw_result AS d ON b.bet_id = d.bet_id
+        WHERE b.user_id = ? 
+        ORDER BY b.created_at DESC`,
+        [user_id]
+      );
+      return result;
+    } catch (err) {
+      console.error("<error> user.getUserHistory", err);
       throw err;
     }
   }

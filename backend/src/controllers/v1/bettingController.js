@@ -75,55 +75,37 @@ class BettingController {
     }
   }
 
-  /**
-   * Process bets - Check winners
-   * @param {*} req - winning_number (array of 6 numbers)
-   * @param {*} res - success or failure response
-   */
-  // async processBets(req, res) {
-  //   const { winning_number } = req.body || {};
+  async getBettors(req, res) {
+    try {
+      const user_id = res.locals.user_id;
+      if (!user_id) {
+        return res.status(400).send({
+          success: false,
+          message: "UnAuthenticated User",
+        });
+      }
 
-  //   if (
-  //     !winning_number ||
-  //     !Array.isArray(winning_number) ||
-  //     winning_number.length !== 6
-  //   ) {
-  //     return res.send({
-  //       success: false,
-  //       message: "Winning number must be an array of 6 numbers",
-  //     });
-  //   }
+      const user = await this.bet.getUserByDraws(user_id);
 
-  //   try {
-  //     // ✅ Fetch bets for the current round
-  //     const round_id = await this.bet.getLatestRoundId();
-  //     const allBets = await this.bet.getBetsByRound(round_id);
-  //     let winningUsers = [];
-
-  //     for (const bet of allBets) {
-  //       const betNumbersArray = bet.bet_number.split("-").map(Number);
-
-  //       // ✅ Check if bet matches the winning numbers
-  //       if (
-  //         betNumbersArray.every((num, index) => num === winning_number[index])
-  //       ) {
-  //         winningUsers.push(bet.user_id);
-  //       }
-  //     }
-
-  //     // ✅ Increment round_id (start a new round)
-  //     await this.bet.incrementRoundId();
-
-  //     res.send({
-  //       success: true,
-  //       message: "Bets processed successfully",
-  //       winningUsers,
-  //       newRoundId: round_id + 1,
-  //     });
-  //   } catch (err) {
-  //     res.send({ success: false, message: err.message });
-  //   }
-  // }
+      if (user.length === 0) {
+        return res.status(404).send({
+          success: false,
+          message: "No bettors found.",
+          data: [],
+        });
+      }
+      res.send({
+        success: true,
+        message: "User Found!",
+        data: user,
+      });
+    } catch (err) {
+      res.send({
+        success: false,
+        message: err.message,
+      });
+    }
+  }
 }
 
 export default BettingController;

@@ -115,12 +115,26 @@ class Bet {
   async getUserBets(user_id) {
     try {
       const [bets] = await this.db.execute(
-        "SELECT * FROM bet WHERE user_id = ?",
+        "SELECT * FROM bets WHERE user_id = ?",
         [user_id]
       );
       return bets;
     } catch (err) {
       console.error("<error> bet.getUserBets", err);
+      throw err;
+    }
+  }
+
+  async getUserByDraws(user_id) {
+    try {
+      const currentDrawId = await this.draws.getLatestDrawId();
+      const [bets] = await this.db.execute(
+        "SELECT * FROM bets WHERE user_id = ? and draw_id = ?",
+        [user_id, currentDrawId]
+      );
+      return bets ? bets : "No Bettors Found.";
+    } catch (err) {
+      console.error("<error> bet.getUserByDraws", err);
       throw err;
     }
   }

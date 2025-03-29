@@ -69,18 +69,37 @@ class Draw {
         [draw_id, numbers]
       );
 
-      if (!winningBets.length) return "No Winner Found";
-
-      let count = 0;
+      // if (!winningBets.length) return "No Winner Found";
+      if (!winningBets.length)
+        await this.db.execute(
+          "UPDATE bets SET status = 'lost' WHERE draw_id = ?",
+          [draw_id]
+        );
 
       for (const winner of winningBets) {
-        count += 1;
+        await this.db.execute(
+          "UPDATE bets SET status = 'won' WHERE bet_id = ?",
+          [winner.bet_id]
+        );
         // ✅ Insert each winner into the `winners` table
         await this.db.execute(
           "INSERT INTO winners (user_id, draw_id, bet_id) VALUES (?, ?, ?)",
           [winner.user_id, draw_id, winner.bet_id]
         );
       }
+
+      if (winningBets.length > 0) {
+        // ✅ If there are winners, update losing bets
+        await this.db.execute(
+          `UPDATE bets 
+     SET status = 'lost' 
+     WHERE draw_id = ? 
+     AND bet_id NOT IN (${winningBets.map(() => "?").join(",")})`,
+          [draw_id, ...winningBets.map((w) => w.bet_id)]
+        );
+      }
+
+      // ✅ Update losing bets (bets NOT in winningBets)
 
       // ✅ Call `distributePrizes` with all winners
       await this.prize.distributePrizes(winningBets);
@@ -172,6 +191,39 @@ class Draw {
       return result[0];
     } catch (err) {
       console.error("<error> Draw.getLatestDraw", err);
+      throw err;
+    }
+  }
+
+  async getUserBetStatusByLatestDraw(status) {
+    try {
+      // ✅ Get the latest completed draw
+      const [latestDraw] = await connection.execute(
+        "SELECT draw_id FROM draws WHERE status = 'completed' ORDER BY created_at DESC LIMIT 1"
+      );
+
+      if (latestDraw.length === 0) {
+        return []; // ✅ No completed draws found
+      }
+
+      const { draw_id } = latestDraw[0];
+
+      // ✅ Fetch users who placed bets in the latest draw
+      const [lossers] = await connection.execute(
+        `SELECT 
+                u.user_id, 
+                u.username, 
+                b.bet_id, 
+                b.bet_number
+             FROM bets b
+             JOIN users u ON b.user_id = u.user_id
+             WHERE b.draw_id = ? AND b.status = ?`,
+        [draw_id, status]
+      );
+
+      return lossers.length > 0 ? lossers : []; // ✅ Always return an array
+    } catch (err) {
+      console.error("<error> Draw.getUserBetsStatusByLatestDRaw", err);
       throw err;
     }
   }

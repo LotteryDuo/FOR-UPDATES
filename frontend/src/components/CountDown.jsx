@@ -1,16 +1,15 @@
 import React from "react";
 import { useState, useEffect } from "react";
 import Alert from "./Alert";
-import { io } from "socket.io-client";
-
-const socket = io("ws://localhost:3000", {
-  transports: ["websocket"],
-});
+import useSocket from "../hooks/useSocket";
 
 const CountDown = ({ onTimeUpdate }) => {
   const [timeLeft, setTimeLeft] = useState("00"); // Start at 60 seconds
+  const { isConnected, socket } = useSocket();
 
   useEffect(() => {
+    if (!isConnected) return;
+
     socket.on("countdown", (timeLeft) => {
       setTimeLeft(timeLeft);
       onTimeUpdate(timeLeft);
@@ -19,7 +18,7 @@ const CountDown = ({ onTimeUpdate }) => {
     return () => {
       socket.off("countdown");
     };
-  }, []); // Add empty dependency array
+  }, [isConnected, socket]); // Add empty dependency array
 
   return (
     <div

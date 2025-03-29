@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, use } from "react";
+import useSocket from "../hooks/useSocket.js";
 
 import Input from "./Input"; // Importing the Input component
 import { styled } from "styled-components";
@@ -10,15 +11,14 @@ import backgroundMusic from "../assets/sounds/background-music.mp3";
 import ButtonWithSound from "./ButtonWithSound";
 
 import { io } from "socket.io-client";
-import fetchAccountData from "../utils/fetchAccountData.jsx";
-
-import fetchPrevBet from "../utils/fetchPrevBet.js";
+import { fetchAccountData, fetchPrevBet } from "../api/Account.js";
 
 import CountDown from "./CountDown";
 
 import fetchWinners from "../utils/fetchWinners.js";
 
-const socket = io("http://localhost:3000");
+import WinningPopup from "./WinningPopUp.jsx";
+import LossingPopUp from "./LossingPopUp.jsx";
 
 const getToken = () => localStorage.getItem("token");
 
@@ -27,6 +27,7 @@ const getUsername = () => localStorage.getItem("username");
 const getUserId = () => localStorage.getItem("user_id");
 
 const DisplayHome = () => {
+  const { isConnected, socket } = useSocket();
   const [ticket, setTicket] = useState(0);
   const [balance, setBalance] = useState(0);
   const navigator = useNavigate();
@@ -40,7 +41,11 @@ const DisplayHome = () => {
   const [popupTopUp, setPopUpTopUp] = useState(false);
   const [popupWithdraw, setPopUpWithdraw] = useState(false);
 
-  const [showWinning, setShowWinning] = useState("pending");
+  const [userInDraw, setUserInDraw] = useState(false);
+  const [showWinning, setShowWinning] = useState(false);
+  const [showLossing, setShowLossing] = useState(false);
+
+  const [withdrawInput, setWithdrawInput] = useState("");
 
   const [users, setUsers] = useState([]);
 
@@ -56,6 +61,59 @@ const DisplayHome = () => {
   ]);
 
   useEffect(() => {
+    if (showWinning || showLossing) {
+      // ✅ Hide popup after 3 seconds
+      const timer = setTimeout(() => {
+        setShowWinning(false);
+        setShowLossing(false);
+      }, 3000);
+
+      return () => clearTimeout(timer); // ✅ Cleanup timer on unmount
+    }
+  }, [showWinning, showLossing]);
+
+  // useEffect(() => {
+  //   if (!isConnected) return;
+
+  //   const prevBet = async () => {
+  //     const token = getToken();
+  //     const bets = await fetchPrevBet(token);
+  //     if (bets.length > 0) {
+  //       setAccountBets(bets);
+  //       setPlaceBet(true);
+  //     } else {
+  //       console.log("No bets found.");
+  //     }
+  //   };
+  //   prevBet();
+  // }, [isConnected, socket]);
+
+  // useEffect(() => {
+  //   if (!isConnected) return;
+
+  //   socket.on("draws", async (data) => {
+  //     if (typeof data == "string") {
+  //       setNumbers(data.split("-").map(Number));
+  //     } else {
+  //       setNumbers(data);
+  //     }
+  //     // Convert string to array of numbers
+  //     console.log(data);
+  //     console.log(data.split("-").map(Number), "data.split");
+  //     console.log(getnumbers, "getnumbers");
+  //   });
+  // }, [isConnected, socket]); // ✅ Run only on mount
+
+  // useEffect(() => {
+  //   if (!isConnected) return;
+  //   socket.on("welcome", (data) => {
+  //     console.log(data);
+  //   });
+  // }, [isConnected, socket]);
+
+  useEffect(() => {
+    if (!isConnected) return;
+
     const fetchUsers = () => {
       socket.emit("requestOnlineUsers");
     };
@@ -67,7 +125,7 @@ const DisplayHome = () => {
       clearInterval(interval);
       socket.off("updateOnlineUsers");
     };
-  }, []);
+  }, [isConnected, socket]);
 
   const audioRef = useRef(null);
   const [isPlaying, setIsPlaying] = useState(false);
@@ -76,8 +134,29 @@ const DisplayHome = () => {
     setQuantity((prev) => prev + 1);
   };
 
-  const handleBuyTicket = async (ticketPrice = 20, ticketQty) => {
+  const updateBalance = async (type, amount) => {
     const token = getToken();
+
+    console.log(token, "asdasdasdjkl");
+
+    if (!amount || isNaN(amount) || amount <= 0) {
+      console.error("Invalid amount");
+      return;
+    }
+    socket.emit(`${type}`, { type, amount, token });
+
+    socket.on(`${type}-success`, (data) => {
+      const { message, balance } = data;
+      console.log(message, "aksdkjasdjkas"); // Expected: 5 "Ticket bought successfully!" aksdkjasdjkas
+      setBalance(balance);
+    });
+  };
+
+  const handleBuyTicket = async (ticketPrice = 20, ticketQty) => {
+    if (!isConnected) return;
+    // console.log(isConnected, "aksdkjasdjkas");
+    const token = getToken();
+    // console.log(token, "aksdkjasdjkas");
     if (!ticketQty || isNaN(ticketQty) || ticketQty <= 0) {
       console.error("Invalid ticket quantity");
       return;
@@ -92,12 +171,14 @@ const DisplayHome = () => {
       setBalance(balance);
       console.log(tickets, message, "aksdkjasdjkas"); // Expected: 5 "Ticket bought successfully!" aksdkjasdjkas
     });
+    [isConnected, socket];
   };
 
   const handlePlaceBet = async (bet_number) => {
+    if (!isConnected) return;
     const token = getToken();
     if (!bet_number) {
-      console.error("Invalid bet number");
+      setAlert("Invalid bet number", "error");
       return;
     }
 
@@ -110,34 +191,16 @@ const DisplayHome = () => {
       // setTicket(bet);
     });
 
+    socket.emit("prev-bet", { token });
+
     socket.on("prev-bet", (data) => {
       const { bet_data } = data;
 
+      console.log(bet_data, "alsdansdkjasndjkan");
+      setPlaceBet(false);
+      setLottoInput("");
       setAccountBets(bet_data);
     });
-
-    // const sendToServerBet = () => {
-    //   socket.emit("place-bet", {});
-    // };
-
-    // sendToServerBet();
-
-    // try {
-    //   const response = await placeBet(bet_number);
-    //   console.log("Ticket Placed successfully:", response);
-    //   const bets = await fetchPrevBet();
-    //   if (bets.length > 0) {
-    //     setAccountBets(bets);
-    //     setPlaceBet(true);
-    //   }
-    //   const data = await fetchAccountData();
-
-    //   if (data) setAccountData(data);
-
-    //   setLottoInput("");
-    // } catch (error) {
-    //   console.error("Failed to buy ticket:", error.message);
-    // }
   };
 
   const navigateHistory = () => {
@@ -153,15 +216,16 @@ const DisplayHome = () => {
   };
 
   useEffect(() => {
-    socket.on("draws", async (data) => {
-      if (typeof data === "string") setNumbers(data.split("-").map(Number)); // Convert string to array of numbers
-    });
+    if (!isConnected) return;
 
-    // ✅ Cleanup function: Remove event listener on unmount
-    return () => {
-      socket.off("draws");
-    };
-  }, []); // ✅ Run only on mount
+    socket.on("draws", async (data) => {
+      if (
+        typeof data == "string"
+          ? setNumbers(data.split("-").map(Number))
+          : setNumbers(data)
+      );
+    });
+  }, [isConnected, socket]); // ✅ Run only on mount
 
   useEffect(() => {
     audioRef.current = new Audio(backgroundMusic);
@@ -188,55 +252,17 @@ const DisplayHome = () => {
     }
   };
 
-  // useEffect(() => {
-  //   const username = getUsername();
-
-  //   if (username) {
-  //     socket.emit("userConnected", {
-  //       username: username,
-  //     });
-  //   } else {
-  //     console.log("⚠️ No username found in localStorage!");
-  //   }
-
-  //   const handleUsersUpdate = (onlineUsers) => {
-  //     setUsers(onlineUsers);
-  //   };
-
-  //   const handleUserDisconnected = (disconnectedUser) => {
-  //     setUsers((prevUsers) =>
-  //       prevUsers.map((user) =>
-  //         user.username === disconnectedUser.username
-  //           ? { ...user, online: false }
-  //           : user
-  //       )
-  //     );
-  //   };
-
-  //   socket.on("updateOnlineUsers", handleUsersUpdate);
-  //   socket.on("userDisconnected", handleUserDisconnected);
-
-  //   window.addEventListener("beforeunload", () => {
-  //     if (username) {
-  //       socket.emit("userDisconnected", { username });
-  //     }
-  //   });
-
-  //   return () => {
-  //     socket.off("updateOnlineUsers", handleUsersUpdate);
-  //     socket.off("userDisconnected", handleUserDisconnected);
-  //   };
-  // }, []);
-
   useEffect(() => {
+    if (!isConnected) return;
+    const token = getToken();
     const getData = async () => {
       try {
-        const data = await fetchAccountData();
+        const data = await fetchAccountData(token);
 
         if (data) {
-          setAccountData(data);
-          setTicket(data.tickets);
-          setBalance(data.balance);
+          setAccountData(data.data);
+          setTicket(data.data.tickets);
+          setBalance(data.data.balance);
         } else {
           setError("Failed to fetch account data");
         }
@@ -248,69 +274,48 @@ const DisplayHome = () => {
     };
 
     getData();
-  }, []); // ✅ Empty dependency array to run only on mount
-
-  // useEffect(() => {
-  //   const getBets = async () => {
-  //     try {
-  //       const bets = await fetchPrevBet();
-
-  //       if (bets.length > 0) {
-  //         setAccountBets(bets);
-  //         setPlaceBet(true);
-  //         console.log(bets);
-  //       } else {
-  //         console.log("no Bets found.");
-  //       }
-  //     } catch (err) {
-  //       setError(err.message);
-  //     } finally {
-  //       setLoading(false);
-  //     }
-  //   };
-
-  //   getBets();
-  // }, []); // ✅ Empty dependency array to run only on mount
+  }, [isConnected, socket]); // ✅ Empty dependency array to run only on mount
 
   useEffect(() => {
+    if (!isConnected) return;
     if (timeLeft !== 0) return; // ✅ Only run when timeLeft is exactly 0
+    const user_id = getUserId();
 
-    const fetchData = async () => {
-      try {
-        console.log("Fetching data since timeLeft is 0...");
-        const account_data = await fetchAccountData();
-        console.log(account_data);
-        if (account_data) setAccountData(account_data);
+    socket.on("winners", async (data) => {
+      const { winners } = data;
 
-        // ✅ Wait 3 seconds before fetching winners
-        setTimeout(async () => {
-          const winners = await fetchWinners(); // ✅ Remove `[winners]`, fetchWinners() should return an array
+      console.log(winners);
+      if (!winners || !winners.result || winners.result.length === 0) {
+        console.log("❌ No winners data available.");
+      } else {
+        const winResult = winners.result.map((winner) =>
+          Number(winner.user_id)
+        );
 
-          console.log("Winners List:", winners);
-
-          console.log(getUserId());
-
-          // ✅ Find the user in the winners array
-          const userWin = winners.find((win) => win.user_id === getUserId());
-
-          if (userWin) {
-            console.log("🎉 You are a winner!", userWin.user_id);
-          } else {
-            console.log("❌ Not a winner.");
-          }
-        }, 3000);
-
-        setAccountBets([]);
-        setPlaceBet(true);
-
-        console.log("Data reloaded successfully!");
-      } catch (error) {
-        console.error("Error fetching data:", error);
+        if (winResult.includes(Number(user_id))) {
+          console.log("🎉 You are a winner!");
+          setShowWinning(true);
+          return; // ✅ Exit early to prevent "losers" from triggering
+        }
       }
-    };
 
-    fetchData();
-  }, [timeLeft]); // ✅ Effect triggers when timeLeft changes
+      // If the user is not in winners, listen for the losers event
+      socket.on("lossers", async (data) => {
+        const { lossers } = data;
+        if (!lossers || !lossers.result || lossers.result.length === 0) {
+          console.log("❌ No lossers data available.");
+          return;
+        }
+        const lossResult = lossers.result.map((loser) => Number(loser.user_id));
+        if (lossResult.includes(Number(user_id))) {
+          console.log("❌ You are a loser.");
+          setShowLossing(true);
+        }
+      });
+    });
+
+    // socket.on("lossers", async (data) => {});
+  }, [timeLeft, isConnected, socket]); // ✅ Effect triggers when timeLeft changes
 
   const handleLottoInputChange = (e) => {
     let rawValue = e.target.value.replace(/[^0-9]/g, "");
@@ -321,6 +326,12 @@ const DisplayHome = () => {
         ?.join("-") || "";
 
     setLottoInput(formattedValue);
+  };
+
+  const handleWithdrawInputChange = (e) => {
+    let rawValue = e.target.value;
+
+    setWithdrawInput(rawValue);
   };
 
   if (loading) return <p className="text-center text-gray-500">Loading...</p>;
@@ -409,7 +420,7 @@ const DisplayHome = () => {
         className="flex justify-center items-center"
         style={{ marginTop: -60 }}
       >
-        {/* {[...Array(6)].map((_, index) => (
+        {getnumbers.map((num, index) => (
           <div
             key={index}
             className="flex items-center justify-center w-[140px] h-[140px] bg-no-repeat bg-contain mr-2"
@@ -419,30 +430,10 @@ const DisplayHome = () => {
             }}
           >
             <p className="text-[5.5rem] text-black leading-tight flex items-center justify-center h-full w-full mr-2">
-              {getnumbers}
+              {num}
             </p>
           </div>
-        ))
-        } */}
-
-        {
-          // const numbers = str.split("-").map(Number);
-
-          getnumbers.map((num, index) => (
-            <div
-              key={index}
-              className="flex items-center justify-center w-[140px] h-[140px] bg-no-repeat bg-contain mr-2"
-              style={{
-                backgroundImage: "url('src/assets/images/winning-bg.png')",
-                fontFamily: "'Jersey 20', sans-serif",
-              }}
-            >
-              <p className="text-[5.5rem] text-black leading-tight flex items-center justify-center h-full w-full mr-2">
-                {num}
-              </p>
-            </div>
-          ))
-        }
+        ))}
       </div>
 
       <div className="flex w-full h-auto justify-between gap-10">
@@ -511,7 +502,9 @@ const DisplayHome = () => {
               }}
             >
               <p
-                onClick={() => handleBuyTicket(20, quantity)}
+                onClick={() => {
+                  handleBuyTicket(20, quantity);
+                }}
                 className="text-[2rem] text-center mt-0 cursor-pointer"
               >
                 BUY TICKET
@@ -579,11 +572,11 @@ const DisplayHome = () => {
                 // height: "100%",
               }}
             >
-              <div className="flex flex-col h-[150px] items-center overflow-y-scroll">
+              <div className="flex flex-col min-h-[150px] justify-left overflow-y-scroll">
                 {accountBets.map((bet, index) => (
                   <p
                     key={index}
-                    className="ml-2 text-center text-white text-[2rem]"
+                    className="ml-2 text-left text-white text-[2rem]"
                   >
                     {`${index + 1}. ${bet.bet_number}`}
                   </p>
@@ -673,6 +666,8 @@ const DisplayHome = () => {
             <div className="inset-0">
               <input
                 type="email"
+                value={withdrawInput}
+                onChange={handleWithdrawInputChange}
                 className="w-full p-2 border-b-2 border-black bg-transparent text-2xl text-black mb-3 focus:outline-none"
               />
             </div>
@@ -684,7 +679,14 @@ const DisplayHome = () => {
                 Cancel
               </ButtonWithSound>
               <ButtonWithSound
-                onClick={() => setPopUpWithdraw(false)}
+                onClick={() => {
+                  setPopUpWithdraw(false),
+                    updateBalance(
+                      "withdraw",
+                      Number(withdrawInput),
+                      setWithdrawInput("")
+                    );
+                }}
                 className="bg-[#41644A] px-4 py-2 rounded-lg text-white transition"
               >
                 WITHDRAW CASH
@@ -722,37 +724,8 @@ const DisplayHome = () => {
         </div>
       )}
 
-      {showWinning === "win" && (
-        <div className="fixed inset-0 flex items-center justify-center bg-white bg-opacity-50">
-          <div className="flex flex-col items-center">
-            <div
-              className="flex flex-row justify-center"
-              style={{ marginTop: -40 }}
-            >
-              {[...Array(8)].map((_, index) => (
-                <div
-                  key={index}
-                  className="pb-[200px] bg-no-repeat mr-2 bg-contain w-[120px] h-[110px]"
-                  style={{
-                    backgroundImage: "url('src/assets/images/winning-img.png')",
-                    fontFamily: "'Jersey 20', sans-serif",
-                  }}
-                ></div>
-              ))}
-            </div>
-            <div className=" bg-[#FFCF50] p-20 rounded-lg shadow-lg text-center mb-[100px]">
-              <h2 className="text-[50px] font-semibold text-black">YOU WON!</h2>
-            </div>
-          </div>
-        </div>
-      )}
-      {showWinning === "lost" && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
-          <div className="bg-[#9E9E9E] p-20 rounded-lg shadow-lg text-center">
-            <h2 className="text-[50px] font-semibold text-black">YOU LOST!</h2>
-          </div>
-        </div>
-      )}
+      {showWinning && <WinningPopup onClose={() => setShowWinning(false)} />}
+      {showLossing && <LossingPopUp onClose={() => setShowLossing(false)} />}
     </div>
   );
 };
