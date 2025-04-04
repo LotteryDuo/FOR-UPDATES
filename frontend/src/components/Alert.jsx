@@ -16,7 +16,7 @@ const icons = {
   info: <Info className="w-5 h-5 text-blue-600" />,
 };
 
-const Alert = ({ type = "info", message, onClose, autoDismiss = 3000 }) => {
+const Alert = ({ type = "info", message, onClose, autoDismiss = 2500 }) => {
   useEffect(() => {
     if (autoDismiss) {
       const timer = setTimeout(onClose, autoDismiss);

@@ -19,6 +19,6 @@ app.use(bodyParser.urlencoded({ extended: false }));
 
 app.use("/v1", cors(), v1);
 
-app.listen(port, "0.0.0.0", () => {
+app.listen(port, () => {
   console.log(`App is running at port ${port}...`);
 });

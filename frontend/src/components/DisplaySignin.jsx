@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import { styled, createGlobalStyle } from "styled-components";
 import ButtonWithSound from "./ButtonWithSound.jsx";
 import Alert from "./Alert.jsx";
-import { LogIn } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import { Login } from "../api/Authenticate.js";
 
@@ -13,7 +12,6 @@ export default function DisplayAuth() {
 
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
-
   return (
     <>
       <GlobalStyle />
@@ -121,7 +119,9 @@ export default function DisplayAuth() {
 
               <div className="flex mb-3 relative items-center justify-center">
                 <StyledButton
-                  onClick={() => Login(username, password, navigate, setAlert)}
+                  onClick={async () =>
+                    await Login(username, password, navigate, setAlert)
+                  }
                 >
                   LOG IN ACCOUNT
                 </StyledButton>

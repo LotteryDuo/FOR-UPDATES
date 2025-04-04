@@ -1,9 +1,10 @@
-import { connection } from "../core/database.js";
+import { slaveDb, masterDb } from "../core/database.js";
 import { encryptPassword } from "../utils/hash.js";
 
 class User {
   constructor() {
-    this.db = connection;
+    this.slave = slaveDb; // Slave DB for read operations
+    this.master = masterDb; // Master DB for write operations
   }
 
   /**
@@ -20,7 +21,7 @@ class User {
   async create(username, email, password) {
     try {
       if ((!username, !email, !password)) return null;
-      const [results] = await connection.execute(
+      const [results] = await this.master.execute(
         "INSERT INTO users(username, email, PASSWORD) VALUES (?, ?, ?)",
         [username, email, encryptPassword(password)]
       );
@@ -42,7 +43,7 @@ class User {
    */
   async verify(username, password) {
     try {
-      const [results] = await connection.execute(
+      const [results] = await this.slave.execute(
         "SELECT user_id, username, fullname FROM users WHERE username = ? AND password = ?",
         [username, encryptPassword(password)]
       );
@@ -64,7 +65,7 @@ class User {
    */
   async get(userId) {
     try {
-      const [results] = await connection.execute(
+      const [results] = await this.slave.execute(
         `SELECT u.user_id, u.username, u.balance, COALESCE(SUM(t.ticket_count), 0) AS ticket_count
        FROM users u
        LEFT JOIN tickets t ON u.user_id = t.user_id AND t.status = 'unused'
@@ -77,7 +78,7 @@ class User {
         throw new Error("User not found");
       }
 
-      const user = results[0]; // ✅ Get first element of array
+      const user = results[0];
 
       return {
         user_id: user.user_id,
@@ -91,25 +92,15 @@ class User {
     }
   }
 
-  /**
-   * POST amount to deposit or withdraw
-   *
-   * @param {string} username
-   * @returns {Object}
-   * @throws {Error}
-   *
-   */
-
   async updateBalance(userId, amount, type) {
     try {
-      await connection.beginTransaction();
+      await this.master.beginTransaction();
 
-      const [users] = await connection.execute(
+      const [users] = await this.slave.execute(
         "SELECT user_id, balance FROM users WHERE user_id = ? FOR UPDATE",
         [userId]
       );
 
-      //check if users exists
       if (users.length === 0) throw new Error("User not found");
 
       const { balance } = users[0];
@@ -117,42 +108,26 @@ class User {
       if ((type === "withdraw" || type === "buy") && balance < amount)
         throw new Error("Insufficient funds.");
 
-      // Update balance based on transaction type
-      if (type === "deposit") {
-        await connection.execute(
+      if (type === "deposit" || type === "winning") {
+        await this.master.execute(
           "UPDATE users SET balance = balance + ? WHERE user_id = ?",
           [amount, userId]
         );
       }
 
-      if (type === "winning") {
-        await connection.execute(
-          "UPDATE users SET balance = balance + ? WHERE user_id = ?",
-          [amount, userId]
-        );
-      }
-
-      if (type === "withdraw") {
-        await connection.execute(
+      if (type === "withdraw" || type === "buy") {
+        await this.master.execute(
           "UPDATE users SET balance = balance - ? WHERE user_id = ?",
           [amount, userId]
         );
       }
 
-      // If type is "buy", add the corresponding number of tickets
-      if (type === "buy") {
-        await connection.execute(
-          "UPDATE users SET balance = balance - ? WHERE user_id = ?",
-          [amount, userId]
-        );
-      }
-
-      const [updatedUser] = await connection.execute(
+      const [updatedUser] = await this.slave.execute(
         "SELECT user_id, balance FROM users WHERE user_id = ?",
         [userId]
       );
 
-      await connection.commit();
+      await this.master.commit();
 
       return {
         success: true,
@@ -165,7 +140,7 @@ class User {
         users: updatedUser[0],
       };
     } catch (err) {
-      await connection.rollback();
+      await this.master.rollback();
       console.error(`<error> users.${type}`, err);
       throw err;
     }
@@ -173,7 +148,7 @@ class User {
 
   async getHistory(user_id) {
     try {
-      const [result] = await connection.execute(
+      const [result] = await this.slave.execute(
         `SELECT 
             b.bet_id, 
             b.user_id, 
@@ -200,7 +175,7 @@ class User {
 
   async getPrevBet(user_id, draw_id) {
     try {
-      const result = await connection.execute(
+      const result = await this.slave.execute(
         `SELECT 
             b.bet_id, 
             b.user_id, 
@@ -223,7 +198,7 @@ class User {
 
   async getLastWinHistory(user_id) {
     try {
-      const [result] = await connection.execute(
+      const [result] = await this.slave.execute(
         `SELECT 
             b.bet_id, 
             b.user_id, 
@@ -246,7 +221,7 @@ class User {
 
   async getUserHistory(user_id) {
     try {
-      const [result] = await connection.execute(
+      const [result] = await this.slave.execute(
         `SELECT 
             b.bet_id, 
             b.user_id, 

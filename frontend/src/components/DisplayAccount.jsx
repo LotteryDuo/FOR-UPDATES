@@ -82,10 +82,6 @@ const DisplayAccount = () => {
     socket.on("updateBalance", (newBalance) => {
       setBalance(newBalance);
     });
-
-    return () => {
-      socket.off("updateBalance");
-    };
   }, [isConnected, socket]);
 
   const handleLogout = () => {

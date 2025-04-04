@@ -48,6 +48,8 @@ class PrizeController {
     try {
       await this.prize.updatesPot(amount);
 
+      console.log(amount);
+
       res.send({
         success: true,
         message: "Prize updated successfully",
@@ -62,28 +64,32 @@ class PrizeController {
 
   /**
    * Roll over the prize if there is no winner and notify clients
-   * @param {userBets} req - The total user bets to be added to the prize
+   * @param {userBet} req - The total user bets to be added to the prize
    * @param {success, message} res - Response indicating success or failure
    */
-  async rollOverPrize(req, res) {
-    const { userBets } = req.body || {};
-    if (!userBets || userBets <= 0) {
+  async updatePrizeAmount(req, res) {
+    const { userBet } = req.body || {};
+    if (!userBet || userBet <= 0) {
       return res.send({
         success: false,
         message: "Invalid bet amount",
       });
     }
     try {
-      // await this.prize.rollOverPot(userBets);
+      await this.prize.updatePrizeAmount(userBet);
+      const amount = await this.prize.getPrizeAmount();
 
       res.send({
         success: true,
-        message: "Prize rolled over successfully",
+        message: "Prize Updated successfully",
+        data: {
+          money: amount,
+        },
       });
     } catch (err) {
       res.send({
         success: false,
-        message: "Failed to roll over prize",
+        message: "Failed to Update Prize",
       });
     }
   }

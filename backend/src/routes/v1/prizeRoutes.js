@@ -20,6 +20,6 @@ prizeRouter.get("/", prize.getPrize.bind(prize));
  * @method PATCH
  * @path /v1/prize/rollover
  */
-prizeRouter.patch("/rollover", authentication, prize.rollOverPrize.bind(prize));
+prizeRouter.patch("/add", authentication, prize.updatePrizeAmount.bind(prize));
 
 export default prizeRouter;

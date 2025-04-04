@@ -84,8 +84,22 @@ async function createCustomServer() {
     }
   });
 
+  server.on("request", () =>
+    console.log(
+      `Request is received by ${process.env.APPNAME || "UNKNOWN"} (${PORT})`
+    )
+  );
+
   if (PORT === 3000) {
     // Main server logic (Publisher)
+    app.get("/", (req, res) => {
+      console.log(
+        `Request received on port ${process.env.PORT || 3000} ${
+          process.env.APPNAME
+        }`
+      );
+      res.send("Hello World!");
+    });
 
     console.log("🚀 Starting MAIN SERVER at PORT 3000");
 
@@ -104,7 +118,7 @@ async function createCustomServer() {
           } else {
             clearInterval(countdownInterval);
 
-            await startDraw();
+            // await startDraw();
 
             const winners = await fetchUserBetStatusByDraw("won");
             const lossers = await fetchUserBetStatusByDraw("lost");
@@ -120,11 +134,11 @@ async function createCustomServer() {
             countdownRunning = true;
           }
 
-          const draw_data = await fetchDrawData();
-          if (draw_data) {
-            const numbers = draw_data.data.result.numbers;
-            io.emit("draws", numbers); // Example draw numbers
-          }
+          // const draw_data = await fetchDrawData();
+          // if (draw_data) {
+          //   const numbers = draw_data.data.result.numbers;
+          //   io.emit("draws", numbers); // Example draw numbers
+          // }
         }, 1000);
       }
     }
@@ -134,7 +148,7 @@ async function createCustomServer() {
       console.log(`🔗 Client connected to MAIN SERVER (3000): ${socket.id}`);
       socket.emit("welcome", "Welcome to the main server!");
 
-      startCountdown();
+      // startCountdown();
       publisherSocket(socket);
     });
 

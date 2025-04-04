@@ -1,6 +1,11 @@
 const subscriberSocket = async (socket, hostSocket) => {
   socket.emit("welcome", "Welcome to the subscriber!");
 
+  hostSocket.on("jackpot-add", (potMoney) => {
+    console.log(potMoney.data.money);
+    socket.emit("jackpot-add", potMoney);
+  });
+
   // Subscriber Countdown ⏳
   hostSocket.on("countdown", (timeLeft) => {
     socket.emit("countdown", timeLeft);

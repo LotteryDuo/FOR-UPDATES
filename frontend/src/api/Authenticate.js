@@ -6,6 +6,8 @@ const Login = async (username, password, navigate, setAlert) => {
     return;
   }
 
+  console.log(username, "alskndaklsndka");
+
   try {
     const response = await axios.post(
       `http://localhost:1000/v1/account/login`,

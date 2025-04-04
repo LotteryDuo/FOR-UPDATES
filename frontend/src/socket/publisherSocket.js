@@ -1,6 +1,7 @@
 import { buyTicket } from "../api/Ticket.js";
 import { placeBet, getPrevBet } from "../api/Bet.js";
 import { updateBalance } from "../api/Account.js";
+import { getPrizeAmount, updatePrizeAmount } from "../api/Prize.js";
 
 const publisherSocket = async (socket) => {
   // Socket for Publish Deposit 🏧
@@ -48,6 +49,12 @@ const publisherSocket = async (socket) => {
     const bet_id = bet.data.bet_id;
     const message = bet.data.message;
     socket.emit("place-bet-success", { numbers, bet_id, message });
+
+    const potMoney = await updatePrizeAmount(token, 20);
+    const newPotMoney = potMoney.data.data.money;
+    const updateMessage = potMoney.data.message;
+
+    socket.emit("jackpot-add", { newPotMoney, updateMessage });
   });
 
   // Socket for Publish Prev-bet 🎲

@@ -11,10 +11,6 @@ const DrawNumber = () => {
       console.log(numbers);
       setDrawNumbers(numbers);
     });
-
-    return () => {
-      socket.off("draw"); // ✅ Clean up listener
-    };
   }, [isConnected, socket]);
 
   return (

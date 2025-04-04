@@ -14,10 +14,6 @@ const CountDown = ({ onTimeUpdate }) => {
       setTimeLeft(timeLeft);
       onTimeUpdate(timeLeft);
     });
-
-    return () => {
-      socket.off("countdown");
-    };
   }, [isConnected, socket]); // Add empty dependency array
 
   return (

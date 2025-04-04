@@ -1,21 +1,18 @@
 import React, { useState, useEffect, useRef, use } from "react";
 import useSocket from "../hooks/useSocket.js";
+import Alert from "./Alert";
 
 import Input from "./Input"; // Importing the Input component
 import { styled } from "styled-components";
 
-import { Wallet, User, Star, CodeSquare } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 
 import backgroundMusic from "../assets/sounds/background-music.mp3";
 import ButtonWithSound from "./ButtonWithSound";
 
-import { io } from "socket.io-client";
 import { fetchAccountData, fetchPrevBet } from "../api/Account.js";
 
 import CountDown from "./CountDown";
-
-import fetchWinners from "../utils/fetchWinners.js";
 
 import WinningPopup from "./WinningPopUp.jsx";
 import LossingPopUp from "./LossingPopUp.jsx";
@@ -35,6 +32,7 @@ const DisplayHome = () => {
   const [accountData, setAccountData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [alert, setAlert] = useState(null);
   const [quantity, setQuantity] = useState(1);
   const [lottoInput, setLottoInput] = useState("");
   const [hasPlacedBet, setPlaceBet] = useState(false);
@@ -48,6 +46,8 @@ const DisplayHome = () => {
   const [withdrawInput, setWithdrawInput] = useState("");
 
   const [users, setUsers] = useState([]);
+
+  const [potMoney, setPotMoney] = useState(1500);
 
   const [timeLeft, setTimeLeft] = useState(null);
 
@@ -123,7 +123,6 @@ const DisplayHome = () => {
     const interval = setInterval(fetchUsers, 10000);
     return () => {
       clearInterval(interval);
-      socket.off("updateOnlineUsers");
     };
   }, [isConnected, socket]);
 
@@ -178,7 +177,10 @@ const DisplayHome = () => {
     if (!isConnected) return;
     const token = getToken();
     if (!bet_number) {
-      setAlert("Invalid bet number", "error");
+      setAlert({
+        type: "error",
+        message: "Invalid Bet Number!",
+      });
       return;
     }
 
@@ -189,6 +191,11 @@ const DisplayHome = () => {
 
       console.log(numbers, bet_id, message, "alsdansdkjasndjkan");
       // setTicket(bet);
+
+      socket.on("jackpot-add", (data) => {
+        const { newPotMoney, updateMessage } = data;
+        setPotMoney(newPotMoney);
+      });
     });
 
     socket.emit("prev-bet", { token });
@@ -197,7 +204,7 @@ const DisplayHome = () => {
       const { bet_data } = data;
 
       console.log(bet_data, "alsdansdkjasndjkan");
-      setPlaceBet(false);
+      setPlaceBet(true);
       setLottoInput("");
       setAccountBets(bet_data);
     });
@@ -325,7 +332,20 @@ const DisplayHome = () => {
         .match(/.{1,2}/g)
         ?.join("-") || "";
 
-    setLottoInput(formattedValue);
+    // Split formattedValue into an array of numbers
+    let numbers = formattedValue.split("-");
+
+    // Check for duplicate numbers
+    let hasDuplicates = new Set(numbers).size !== numbers.length;
+
+    if (!hasDuplicates) {
+      setLottoInput(formattedValue);
+    } else {
+      setAlert({
+        type: "error",
+        message: "Must not Contain Duplicate Number!",
+      });
+    }
   };
 
   const handleWithdrawInputChange = (e) => {
@@ -376,7 +396,7 @@ const DisplayHome = () => {
               }}
               className="flex justify-right px-6 py-2 rounded-lg"
             >
-              JACKPOT PRIZE: $1,500.00
+              JACKPOT PRIZE: ${potMoney}.00
             </h1>
           </div>
         </div>
@@ -606,6 +626,14 @@ const DisplayHome = () => {
               style={{ fontSize: "2.5rem", marginTop: "0px" }}
             />
           </div>
+
+          {alert && (
+            <Alert
+              type={alert.type}
+              message={alert.message}
+              onClose={() => setAlert(null)}
+            />
+          )}
 
           <div className="flex mt-5 mr-16 relative items-center justify-center">
             <Button

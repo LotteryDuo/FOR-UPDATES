@@ -12,8 +12,7 @@ import Account from "./pages/Account.jsx";
 import History from "./pages/History.jsx";
 import PageNotFound from "./pages/PageNotFound.jsx";
 
-function App() {
-  const [count, setCount] = useState(0);
+const App = () => {
   const { isConnected, socket } = useSocket();
 
   useEffect(() => {
@@ -36,6 +35,6 @@ function App() {
       <Route path="*" element={<PageNotFound />} />
     </Routes>
   );
-}
+};
 
 export default App;
